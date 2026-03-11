@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect } from "react"
+import { createContext, useContext, useState, useEffect, Suspense } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { PageLoader } from "@/components/ui/page-loader"
 
@@ -9,8 +9,7 @@ const LoadingContext = createContext({
   setIsLoading: (loading: boolean) => {}
 })
 
-export function LoadingProvider({ children }: { children: React.ReactNode }) {
-  const [isLoading, setIsLoading] = useState(false)
+function LoadingListener({ setIsLoading }: { setIsLoading: (loading: boolean) => void }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
@@ -18,10 +17,19 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true)
     const timer = setTimeout(() => setIsLoading(false), 2000)
     return () => clearTimeout(timer)
-  }, [pathname, searchParams])
+  }, [pathname, searchParams, setIsLoading])
+
+  return null
+}
+
+export function LoadingProvider({ children }: { children: React.ReactNode }) {
+  const [isLoading, setIsLoading] = useState(false)
 
   return (
     <LoadingContext.Provider value={{ isLoading, setIsLoading }}>
+      <Suspense fallback={null}>
+        <LoadingListener setIsLoading={setIsLoading} />
+      </Suspense>
       {isLoading && <PageLoader />}
       {children}
     </LoadingContext.Provider>
