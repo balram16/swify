@@ -122,7 +122,7 @@ const createPolicyTemplate = async (req, res) => {
         // Create notification
         await pool.query(
             'INSERT INTO notifications (user_id, title, message, type, related_id) VALUES ($1, $2, $3, $4, $5)',
-            [providerId, 'Policy Template Created', `Policy template "${policyType}" created successfully`, 'policy_created', template.template_id]
+            [providerId, 'Policy Template Created', `Policy template "${policyType}" created successfully`, 'general', template.template_id]
         );
 
         res.status(201).json({

@@ -7,6 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Search,
   Filter,
   Download,
@@ -31,6 +37,9 @@ export default function AllClaimsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [claims, setClaims] = useState<any[]>([])
+  const [aiResult, setAiResult] = useState<any>(null)
+  const [aiDialogOpen, setAiDialogOpen] = useState(false)
+  const [verifyLoading, setVerifyLoading] = useState(false)
 
   const fetchPending = async () => {
     setLoading(true)
@@ -59,7 +68,7 @@ export default function AllClaimsPage() {
   
   const filteredClaims = claims.filter((claim: any) => {
     // Apply status filter
-    if (statusFilter !== "all" && claim.status.toLowerCase() !== statusFilter.toLowerCase()) {
+    if (statusFilter !== "all" && (claim.claim_status || '').toLowerCase() !== statusFilter.toLowerCase()) {
       return false
     }
     
@@ -69,7 +78,7 @@ export default function AllClaimsPage() {
       return (
         String(claim.claim_id).toLowerCase().includes(query) ||
         String(claim.policyholder_name || '').toLowerCase().includes(query) ||
-        String(claim.policy_number).toLowerCase().includes(query)
+        String(claim.policy_number || '').toLowerCase().includes(query)
       )
     }
     
@@ -230,7 +239,7 @@ export default function AllClaimsPage() {
         )}
         {!loading && filteredClaims.length > 0 ? (
           filteredClaims.map((claim: any) => (
-            <Card key={claim.id} className="overflow-hidden">
+            <Card key={claim.claim_id} className="overflow-hidden">
               <div 
                 className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50"
                 onClick={() => toggleExpand(String(claim.claim_id))}
@@ -326,8 +335,56 @@ export default function AllClaimsPage() {
                     <div>
                       <h4 className="text-sm font-medium mb-2">Actions</h4>
                       <div className="flex gap-2">
-                        <Button variant="outline" onClick={async () => { await apiClient.post(`/claims/claim/${claim.claim_id}/verify`); fetchPending(); }}>Verify</Button>
-                        <Button onClick={async () => { await apiClient.post(`/claims/claim/${claim.claim_id}/process`); fetchPending(); }} className="bg-green-600 hover:bg-green-700">Process Payout</Button>
+                        <Button
+                          variant="outline"
+                          className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                          disabled={verifyLoading}
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            setVerifyLoading(true)
+                            try {
+                              const res = await apiClient.post(`/claims/claim/${claim.claim_id}/verify`) as any
+                              console.log('AI Verify response:', res)
+                              const analysis = res?.analysis || res?.data?.analysis || res
+                              if (analysis && analysis.riskScore !== undefined) {
+                                setAiResult(analysis)
+                                setAiDialogOpen(true)
+                              } else {
+                                alert('AI Analysis completed but no score returned. Check console.')
+                              }
+                              fetchPending()
+                            } catch(e: any) { alert(e.message || 'Verify failed') }
+                            finally { setVerifyLoading(false) }
+                          }}
+                        >
+                          <Brain className="h-4 w-4 mr-1" /> {verifyLoading ? 'Analyzing...' : 'AI Verify'}
+                        </Button>
+                        <Button
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                          disabled={claim.claim_status === 'approved'}
+                          onClick={async () => {
+                            try {
+                              await apiClient.post(`/claims/claim/${claim.claim_id}/approve`, { approvedAmount: claim.claim_amount })
+                              alert('Claim approved!')
+                              fetchPending()
+                            } catch(e: any) { alert(e.message || 'Failed') }
+                          }}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" /> Approve
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          disabled={claim.claim_status === 'rejected'}
+                          onClick={async () => {
+                            try {
+                              await apiClient.post(`/claims/claim/${claim.claim_id}/reject`, { reason: 'Rejected by provider' })
+                              alert('Claim rejected')
+                              fetchPending()
+                            } catch(e: any) { alert(e.message || 'Failed') }
+                          }}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" /> Reject
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -345,6 +402,73 @@ export default function AllClaimsPage() {
           </div>
         )}
       </div>
+
+      {/* AI Analysis Dialog */}
+      <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-blue-500" />
+              AI Claim Analysis
+            </DialogTitle>
+          </DialogHeader>
+          {aiResult && (
+            <div className="space-y-5">
+              {/* Score Display */}
+              <div className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                <div className="text-center">
+                  <div className={`text-4xl font-bold ${
+                    aiResult.riskScore <= 25 ? 'text-green-600' :
+                    aiResult.riskScore <= 50 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {aiResult.riskScore}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Risk Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-blue-600">{aiResult.confidenceScore}%</div>
+                  <div className="text-xs text-muted-foreground">Confidence</div>
+                </div>
+                <div className="text-center">
+                  <Badge className={`text-sm px-3 py-1 ${
+                    aiResult.recommendation === 'approve' ? 'bg-green-100 text-green-800' :
+                    aiResult.recommendation === 'review' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {aiResult.recommendation === 'approve' ? '✅ Approve' :
+                     aiResult.recommendation === 'review' ? '⚠️ Review' : '❌ Reject'}
+                  </Badge>
+                  <div className="text-xs text-muted-foreground mt-1">Recommendation</div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <p className="text-sm font-medium">{aiResult.summary}</p>
+
+              {/* Risk Factors */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Analysis Factors</h4>
+                <div className="space-y-2">
+                  {aiResult.factors?.map((f: any, i: number) => (
+                    <div key={i} className="flex items-start gap-2 text-sm border rounded p-2">
+                      <span className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${
+                        f.impact === 'high' ? 'bg-red-500' :
+                        f.impact === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                      }`} />
+                      <div>
+                        <span className="font-medium">{f.name}</span>
+                        <span className="text-muted-foreground"> — {f.detail}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button className="w-full" onClick={() => setAiDialogOpen(false)}>Close</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

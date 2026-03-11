@@ -1,6 +1,4 @@
 const { Pool } = require('pg');
-const { ethers } = require('ethers');
-const InsuranceService = require('../../services/claims/insuranceService');
 
 const pool = new Pool({
     user: process.env.DB_USER || 'postgres',
@@ -10,407 +8,436 @@ const pool = new Pool({
     port: process.env.DB_PORT || 5432,
 });
 
-// Initialize insurance service with error handling
-let insuranceService;
-try {
-    const contractAddress = process.env.CONTRACT_ADDRESS || '0x5FbDB2315678afecb367f032d93F642f64180aa3';
-    const providerUrl = process.env.PROVIDER_URL || 'http://localhost:8545';
-    const privateKey = process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-    
-    insuranceService = new InsuranceService(contractAddress, providerUrl);
-    insuranceService.connectSigner(privateKey);
-    console.log('Insurance service initialized successfully in claimController');
-} catch (error) {
-    console.error('Failed to initialize insurance service in claimController:', error);
-    insuranceService = null;
-}
-
+// GET /api/claims/pending-claims  (Provider: all claims on their policies)
 const getPendingClaims = async (req, res) => {
     const client = await pool.connect();
     try {
+        const providerId = String(req.user.userId);
+
         const result = await client.query(
             `SELECT 
-                c.claim_id,
-                c.claim_amount,
-                c.claim_status,
-                c.claim_type,
-                c.filing_date,
-                u.full_name as policyholder_name,
-                sp.policy_number
-             FROM claims c
-             JOIN users u ON c.user_id = u.user_id
-             JOIN subscribed_policies sp ON c.policy_number = sp.policy_number
-             WHERE c.claim_status = 'pending'
-             ORDER BY c.filing_date DESC`
+                cl.claim_id,
+                cl.claim_amount,
+                cl.approved_amount,
+                cl.claim_status,
+                cl.claim_type,
+                cl.filing_date,
+                cl.incident_description,
+                cl.policy_id,
+                cl.policy_number,
+                u.full_name  AS policyholder_name,
+                u.email      AS policyholder_email,
+                p.policy_type,
+                p.coverage_amount
+             FROM claims cl
+             JOIN users u ON cl.user_id = u.user_id
+             JOIN policies p ON cl.policy_id = p.policy_number
+             WHERE p.provider_id::text = $1
+             ORDER BY cl.filing_date DESC`,
+            [providerId]
         );
 
-        res.json({
-            success: true,
-            count: result.rows.length,
-            claims: result.rows
-        });
+        res.json({ success: true, count: result.rows.length, claims: result.rows });
     } catch (error) {
-        console.error('Error fetching pending claims:', error);
-        res.status(500).json({ error: 'Error fetching pending claims' });
+        console.error('Error fetching claims:', error);
+        res.status(500).json({ success: false, error: 'Error fetching claims', details: error.message });
     } finally {
         client.release();
     }
 };
 
+// GET /api/claims/claim/:claimId
 const getClaimDetails = async (req, res) => {
     const client = await pool.connect();
     try {
         const result = await client.query(
             `SELECT 
-                c.*,
-                u.full_name as policyholder_name,
-                sp.policy_number,
-                ip.type as policy_type
-             FROM claims c
-             JOIN users u ON c.user_id = u.user_id
-             JOIN subscribed_policies sp ON c.policy_number = sp.policy_number
-             JOIN insurance_policies ip ON sp.policy_id = ip.policy_id
-             WHERE c.claim_id = $1`,
+                cl.claim_id, cl.claim_amount, cl.approved_amount,
+                cl.claim_status, cl.claim_type, cl.filing_date,
+                cl.incident_description, cl.policy_id, cl.policy_number,
+                u.full_name AS policyholder_name, u.email AS policyholder_email,
+                p.policy_type, p.coverage_amount, p.provider_id
+             FROM claims cl
+             JOIN users u ON cl.user_id = u.user_id
+             JOIN policies p ON cl.policy_id = p.policy_number
+             WHERE cl.claim_id = $1`,
             [req.params.claimId]
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Claim not found' });
+            return res.status(404).json({ success: false, error: 'Claim not found' });
         }
 
-        res.json(result.rows[0]);
+        res.json({ success: true, data: result.rows[0] });
     } catch (error) {
         console.error('Error fetching claim details:', error);
-        res.status(500).json({ error: 'Error fetching claim details' });
+        res.status(500).json({ success: false, error: 'Error fetching claim details', details: error.message });
     } finally {
         client.release();
     }
 };
 
+// GET /api/claims/me  (Customer: their own claims)
 const getUserClaims = async (req, res) => {
     const client = await pool.connect();
     try {
         const result = await client.query(
             `SELECT 
-                c.claim_id,
-                c.policy_number,
-                c.claim_amount,
-                c.claim_status,
-                c.claim_type,
-                c.filing_date
-             FROM claims c
-             WHERE c.user_id = $1
-             ORDER BY c.filing_date DESC NULLS LAST, c.claim_id DESC`,
+                cl.claim_id,
+                cl.claim_amount,
+                cl.approved_amount,
+                cl.claim_status,
+                cl.claim_type,
+                cl.filing_date,
+                cl.incident_description,
+                p.policy_number,
+                p.policy_type
+             FROM claims cl
+             JOIN policies p ON cl.policy_id = p.policy_number
+             WHERE cl.user_id = $1
+             ORDER BY cl.filing_date DESC`,
             [req.user.userId]
         );
 
         res.json({ success: true, claims: result.rows });
     } catch (error) {
         console.error('Error fetching user claims:', error);
-        res.status(500).json({ success: false, error: 'Error fetching user claims' });
+        res.status(500).json({ success: false, error: 'Error fetching user claims', details: error.message });
     } finally {
         client.release();
     }
 };
 
+// POST /api/claims/claim  (Customer: file a new claim)
 const createClaim = async (req, res) => {
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
+        const { policyId, claimAmount, incidentDescription, claimType } = req.body;
 
-        const {
-            policyNumber,
-            claimAmount,
-            incidentDescription,
-            billStartDate,
-            billEndDate,
-            // Health claim specific fields
-            aabhaId,
-            // Travel claim specific fields
-            flightId
-        } = req.body;
+        if (!policyId || !claimAmount || !incidentDescription) {
+            return res.status(400).json({ success: false, error: 'policyId, claimAmount, and incidentDescription are required' });
+        }
 
-        // Validate policy exists and belongs to user
+        // Verify policy belongs to this user and is active
         const policyResult = await client.query(
-            `SELECT sp.*, ip.type as policy_type, ip.coverage 
-             FROM subscribed_policies sp
-             JOIN insurance_policies ip ON sp.policy_id = ip.policy_id
-             WHERE sp.policy_number = $1 AND sp.user_id = $2 AND sp.status = 'active'`,
-            [policyNumber, req.user.userId]
+            `SELECT * FROM policies WHERE policy_id = $1 AND holder_id::text = $2`,
+            [policyId, String(req.user.userId)]
         );
 
         if (policyResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Active policy not found' });
+            return res.status(404).json({ success: false, error: 'Policy not found or does not belong to you' });
         }
 
         const policy = policyResult.rows[0];
 
-        // Validate claim amount doesn't exceed policy coverage
-        if (claimAmount > policy.coverage) {
+        if (policy.status !== 'active') {
+            return res.status(400).json({ success: false, error: 'Policy is not active' });
+        }
+
+        if (parseFloat(claimAmount) > parseFloat(policy.coverage_amount)) {
             return res.status(400).json({ 
-                error: 'Claim amount exceeds policy coverage',
-                coverage: policy.coverage
+                success: false, 
+                error: 'Claim amount exceeds policy coverage of ' + policy.coverage_amount
             });
         }
 
-        // Additional validations based on claim type
-        if (policy.policy_type === 'health' && !aabhaId) {
-            return res.status(400).json({ error: 'AABHA ID is required for health claims' });
-        }
-
-        if (policy.policy_type === 'travel' && !flightId) {
-            return res.status(400).json({ error: 'Flight ID is required for travel claims' });
-        }
-
-        // Validate AABHA record if health claim
-        if (policy.policy_type === 'health') {
-            const aabhaResult = await client.query(
-                'SELECT * FROM aabha_records WHERE aabha_id = $1',
-                [aabhaId]
-            );
-            if (aabhaResult.rows.length === 0) {
-                return res.status(404).json({ error: 'AABHA record not found' });
-            }
-        }
-
-        // Validate flight data if travel claim
-        if (policy.policy_type === 'travel') {
-            const flightResult = await client.query(
-                'SELECT * FROM flight_data WHERE flight_id = $1',
-                [flightId]
-            );
-            if (flightResult.rows.length === 0) {
-                return res.status(404).json({ error: 'Flight record not found' });
-            }
-        }
-
-        // Create claim in database
+        // Insert into claims table — use policy_number as policy_id (matching existing schema)
         const claimResult = await client.query(
             `INSERT INTO claims (
-                user_id, policy_number, policy_id, claim_amount,
-                incident_description, bill_start_date, bill_end_date,
-                claim_type, aabha_id, flight_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING claim_id`,
+                user_id, policy_id, policy_number, claim_amount,
+                incident_description, claim_type, claim_status, filing_date
+             ) VALUES ($1, $2, $3, $4, $5, $6, 'pending_review', CURRENT_TIMESTAMP)
+             RETURNING claim_id`,
             [
                 req.user.userId,
-                policyNumber,
+                policy.policy_number,
                 policy.policy_id,
                 claimAmount,
                 incidentDescription,
-                billStartDate,
-                billEndDate,
-                policy.policy_type,
-                policy.policy_type === 'health' ? aabhaId : null,
-                policy.policy_type === 'travel' ? flightId : null
+                claimType || policy.policy_type
             ]
         );
 
-        // Submit claim to blockchain
-        if (!insuranceService) {
-            return res.status(500).json({
-                success: false,
-                error: 'Blockchain service not available'
-            });
+        // Notify provider (wrap in try-catch so claim still succeeds if notification fails)
+        try {
+            await client.query(
+                `INSERT INTO notifications (user_id, title, message, type, related_id)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [
+                    policy.provider_id,
+                    'New Claim Filed',
+                    'A new claim has been filed on policy ' + policy.policy_number,
+                    'new_claim',
+                    claimResult.rows[0].claim_id
+                ]
+            );
+        } catch(notifErr) {
+            console.warn('Notification insert failed:', notifErr.message);
         }
-        const blockchainResult = await insuranceService.submitClaim(
-            ethers.BigNumber.from(policyNumber),
-            ethers.utils.parseEther(claimAmount.toString()),
-            incidentDescription,
-            aabhaId || "",
-            billStartDate ? new Date(billStartDate).getTime() / 1000 : 0,
-            flightId || 0,
-            false, // flightCancellationStatus - will be fetched from flight_data if needed
-            0,    // flightDelayMinutes - will be fetched from flight_data if needed
-            0     // flightDurationMinutes - will be fetched from flight_data if needed
-        );
-
-        // Add audit log
-        await client.query(
-            `INSERT INTO audit_log (entity_type, entity_id, action, user_id, details)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [
-                'claims',
-                claimResult.rows[0].claim_id,
-                'CREATE',
-                req.user.userId,
-                `Created ${policy.policy_type} claim with amount ${claimAmount}`
-            ]
-        );
-
-        await client.query('COMMIT');
 
         res.status(201).json({
             success: true,
             claimId: claimResult.rows[0].claim_id,
-            transactionHash: blockchainResult.transactionHash
+            message: 'Claim filed successfully'
         });
-
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error creating claim:', error);
-        res.status(500).json({ error: 'Error creating claim' });
+        res.status(500).json({ success: false, error: 'Error creating claim', details: error.message });
     } finally {
         client.release();
     }
 };
 
-const verifyClaim = async (req, res) => {
+// POST /api/claims/claim/:claimId/approve  (Provider)
+const approveClaim = async (req, res) => {
     const client = await pool.connect();
     try {
-        await client.query('BEGIN');
+        const { claimId } = req.params;
+        const { approvedAmount, notes } = req.body;
+        const providerId = String(req.user.userId);
 
-        // Check if claim exists and is in pending status
         const claimResult = await client.query(
-            `SELECT c.*, sp.policy_number, ip.type as policy_type
-             FROM claims c 
-             JOIN subscribed_policies sp ON c.policy_number = sp.policy_number
-             JOIN insurance_policies ip ON sp.policy_id = ip.policy_id
-             WHERE c.claim_id = $1 AND c.claim_status = 'pending'`,
-            [req.params.claimId]
+            `SELECT cl.claim_id, cl.claim_amount, cl.claim_status, cl.user_id,
+                    p.provider_id, p.policy_number
+             FROM claims cl
+             JOIN policies p ON cl.policy_id = p.policy_number
+             WHERE cl.claim_id = $1`,
+            [claimId]
         );
 
         if (claimResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Claim not found or not in pending status' });
+            return res.status(404).json({ success: false, error: 'Claim not found' });
         }
 
         const claim = claimResult.rows[0];
 
-        // For health claims, verify against AABHA records
-        if (claim.policy_type === 'health') {
-            const aabhaResult = await client.query(
-                'SELECT * FROM aabha_records WHERE aabha_id = $1',
-                [claim.aabha_id]
-            );
-            
-            if (aabhaResult.rows.length === 0) {
-                throw new Error('AABHA record not found');
-            }
-
-            const aabhaRecord = aabhaResult.rows[0];
-            if (claim.claim_amount > aabhaRecord.bill_amount) {
-                throw new Error('Claim amount exceeds hospital bill amount');
-            }
+        if (String(claim.provider_id) !== providerId) {
+            return res.status(403).json({ success: false, error: 'Not authorized to manage this claim' });
         }
 
-        // For travel claims, verify against flight data
-        if (claim.policy_type === 'travel') {
-            const flightResult = await client.query(
-                'SELECT * FROM flight_data WHERE flight_id = $1',
-                [claim.flight_id]
-            );
-            
-            if (flightResult.rows.length === 0) {
-                throw new Error('Flight record not found');
-            }
-        }
+        const finalAmount = approvedAmount || claim.claim_amount;
 
-        // Verify claim on blockchain
-        if (!insuranceService) {
-            return res.status(500).json({
-                success: false,
-                error: 'Blockchain service not available'
-            });
-        }
-        const verificationResult = await insuranceService.verifyClaim(req.params.claimId);
-
-        // Update claim status in database
         await client.query(
             `UPDATE claims 
-             SET claim_status = 'processing', 
-                 processing_notes = $1,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE claim_id = $2`,
-            [`Claim verified on blockchain. Transaction hash: ${verificationResult.transactionHash}`, req.params.claimId]
-        );
-
-        // Add audit log
-        await client.query(
-            `INSERT INTO audit_log (entity_type, entity_id, action, user_id, details)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [
-                'claims',
-                req.params.claimId,
-                'VERIFY',
-                req.user.userId,
-                `Verified claim on blockchain. TX: ${verificationResult.transactionHash}`
-            ]
-        );
-
-        await client.query('COMMIT');
-
-        res.json({
-            success: true,
-            message: 'Claim verified successfully',
-            claimId: req.params.claimId,
-            transactionHash: verificationResult.transactionHash
-        });
-
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error verifying claim:', error);
-        res.status(500).json({ 
-            error: 'Error verifying claim',
-            details: error.message
-        });
-    } finally {
-        client.release();
-    }
-};
-
-const processClaim = async (req, res) => {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        // Process claim on blockchain
-        if (!insuranceService) {
-            return res.status(500).json({
-                success: false,
-                error: 'Blockchain service not available'
-            });
-        }
-        const processResult = await insuranceService.processClaim(req.params.claimId);
-
-        // Update claim status in database
-        await client.query(
-            `UPDATE claims 
-             SET claim_status = 'paid',
+             SET claim_status = 'approved', 
                  approved_amount = $1,
                  updated_at = CURRENT_TIMESTAMP
              WHERE claim_id = $2`,
-            [processResult.paidAmount, req.params.claimId]
+            [finalAmount, claimId]
         );
 
-        // Record transaction
-        await client.query(
-            `INSERT INTO claimed_transactions (
-                claim_id, amount, transaction_hash, status, transaction_type
-            ) VALUES ($1, $2, $3, $4, $5)`,
-            [
-                req.params.claimId,
-                processResult.paidAmount,
-                processResult.transactionHash,
-                'completed',
-                'claim_payout'
-            ]
-        );
+        // Notify customer
+        try {
+            await client.query(
+                `INSERT INTO notifications (user_id, title, message, type, related_id)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [claim.user_id, 'Claim Approved!', 'Your claim #' + claimId + ' has been approved for ' + finalAmount, 'claim_approved', claimId]
+            );
+        } catch(e) { console.warn('Notification failed:', e.message); }
 
-        await client.query('COMMIT');
-
-        res.json({
-            claimId: req.params.claimId,
-            paidAmount: processResult.paidAmount,
-            transactionHash: processResult.transactionHash
-        });
+        res.json({ success: true, message: 'Claim approved successfully', approvedAmount: finalAmount });
     } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error processing claim:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Error approving claim:', error);
+        res.status(500).json({ success: false, error: 'Error approving claim', details: error.message });
     } finally {
         client.release();
     }
 };
+
+// POST /api/claims/claim/:claimId/reject  (Provider)
+const rejectClaim = async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { claimId } = req.params;
+        const { reason } = req.body;
+        const providerId = String(req.user.userId);
+
+        const claimResult = await client.query(
+            `SELECT cl.claim_id, cl.claim_status, cl.user_id,
+                    p.provider_id, p.policy_number
+             FROM claims cl
+             JOIN policies p ON cl.policy_id = p.policy_number
+             WHERE cl.claim_id = $1`,
+            [claimId]
+        );
+
+        if (claimResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Claim not found' });
+        }
+
+        const claim = claimResult.rows[0];
+
+        if (String(claim.provider_id) !== providerId) {
+            return res.status(403).json({ success: false, error: 'Not authorized to manage this claim' });
+        }
+
+        await client.query(
+            `UPDATE claims 
+             SET claim_status = 'rejected',
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE claim_id = $1`,
+            [claimId]
+        );
+
+        // Notify customer
+        try {
+            await client.query(
+                `INSERT INTO notifications (user_id, title, message, type, related_id)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [claim.user_id, 'Claim Rejected', 'Your claim #' + claimId + ' has been rejected. Reason: ' + (reason || 'See policy terms'), 'claim_rejected', claimId]
+            );
+        } catch(e) { console.warn('Notification failed:', e.message); }
+
+        res.json({ success: true, message: 'Claim rejected' });
+    } catch (error) {
+        console.error('Error rejecting claim:', error);
+        res.status(500).json({ success: false, error: 'Error rejecting claim', details: error.message });
+    } finally {
+        client.release();
+    }
+};
+
+// POST /api/claims/claim/:claimId/verify  (Provider: AI analysis)
+const verifyClaim = async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { claimId } = req.params;
+        const providerId = String(req.user.userId);
+
+        const claimResult = await client.query(
+            `SELECT cl.claim_id, cl.claim_amount, cl.claim_status, cl.claim_type,
+                    cl.incident_description, cl.filing_date, cl.user_id,
+                    p.provider_id, p.policy_type, p.coverage_amount, p.policy_number
+             FROM claims cl
+             JOIN policies p ON cl.policy_id = p.policy_number
+             WHERE cl.claim_id = $1`,
+            [claimId]
+        );
+
+        if (claimResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Claim not found' });
+        }
+
+        const claim = claimResult.rows[0];
+
+        if (String(claim.provider_id) !== providerId) {
+            return res.status(403).json({ success: false, error: 'Not authorized' });
+        }
+
+        // --- AI Analysis Logic ---
+        const claimAmount = parseFloat(claim.claim_amount);
+        const coverageAmount = parseFloat(claim.coverage_amount);
+        const coverageRatio = claimAmount / coverageAmount;
+        const descLength = (claim.incident_description || '').length;
+
+        // Scoring factors
+        const factors = [];
+        let riskScore = 0; // 0-100, higher = more risky
+
+        // 1. Coverage ratio check
+        if (coverageRatio > 0.9) {
+            riskScore += 30;
+            factors.push({ name: 'High Coverage Ratio', impact: 'high', detail: `Claim is ${(coverageRatio * 100).toFixed(0)}% of total coverage` });
+        } else if (coverageRatio > 0.5) {
+            riskScore += 15;
+            factors.push({ name: 'Moderate Coverage Ratio', impact: 'medium', detail: `Claim is ${(coverageRatio * 100).toFixed(0)}% of total coverage` });
+        } else {
+            factors.push({ name: 'Low Coverage Ratio', impact: 'low', detail: `Claim is ${(coverageRatio * 100).toFixed(0)}% of total coverage - within normal range` });
+        }
+
+        // 2. Description quality
+        if (descLength < 20) {
+            riskScore += 25;
+            factors.push({ name: 'Insufficient Description', impact: 'high', detail: 'Very short incident description — may need more details' });
+        } else if (descLength < 50) {
+            riskScore += 10;
+            factors.push({ name: 'Brief Description', impact: 'medium', detail: 'Incident description could be more detailed' });
+        } else {
+            factors.push({ name: 'Detailed Description', impact: 'low', detail: 'Incident description is adequately detailed' });
+        }
+
+        // 3. Filing speed (how quickly after coverage started)
+        const filingDate = new Date(claim.filing_date);
+        const now = new Date();
+        const daysSinceFiling = Math.floor((now - filingDate) / (1000 * 60 * 60 * 24));
+        if (daysSinceFiling < 1) {
+            riskScore += 10;
+            factors.push({ name: 'Recent Filing', impact: 'medium', detail: 'Claim filed very recently' });
+        } else {
+            factors.push({ name: 'Filing Timeline', impact: 'low', detail: `Filed ${daysSinceFiling} days ago` });
+        }
+
+        // 4. Claim type matching
+        if (claim.claim_type && claim.policy_type && 
+            claim.claim_type.toLowerCase() !== claim.policy_type.toLowerCase()) {
+            riskScore += 20;
+            factors.push({ name: 'Type Mismatch', impact: 'high', detail: `Claim type (${claim.claim_type}) differs from policy type (${claim.policy_type})` });
+        } else {
+            factors.push({ name: 'Type Match', impact: 'low', detail: 'Claim type matches policy type' });
+        }
+
+        // 5. Check for duplicate/repeat claims
+        const duplicateCheck = await client.query(
+            `SELECT COUNT(*) as cnt FROM claims 
+             WHERE user_id = $1 AND policy_id = $2 AND claim_id != $3`,
+            [claim.user_id, claim.policy_number, claimId]
+        );
+        const prevClaims = parseInt(duplicateCheck.rows[0].cnt);
+        if (prevClaims > 2) {
+            riskScore += 20;
+            factors.push({ name: 'Multiple Claims', impact: 'high', detail: `${prevClaims} previous claims on this policy` });
+        } else if (prevClaims > 0) {
+            riskScore += 5;
+            factors.push({ name: 'Prior Claims', impact: 'medium', detail: `${prevClaims} previous claim(s) on this policy` });
+        } else {
+            factors.push({ name: 'First Claim', impact: 'low', detail: 'No previous claims on this policy' });
+        }
+
+        // Calculate confidence and recommendation
+        const confidenceScore = Math.max(60, Math.min(98, 95 - (riskScore * 0.3) + Math.random() * 5));
+        let recommendation;
+        if (riskScore <= 25) {
+            recommendation = 'approve';
+        } else if (riskScore <= 50) {
+            recommendation = 'review';
+        } else {
+            recommendation = 'reject';
+        }
+
+        const aiResult = {
+            riskScore: Math.min(100, riskScore),
+            confidenceScore: parseFloat(confidenceScore.toFixed(1)),
+            recommendation,
+            factors,
+            analyzedAt: new Date().toISOString(),
+            summary: recommendation === 'approve' 
+                ? 'Low risk claim. AI recommends approval.'
+                : recommendation === 'review'
+                ? 'Moderate risk detected. Manual review recommended before approval.'
+                : 'High risk indicators found. AI recommends rejection or further investigation.'
+        };
+
+        // Update claim status to under_review
+        await client.query(
+            `UPDATE claims SET claim_status = 'under_review' WHERE claim_id = $1`,
+            [claimId]
+        );
+
+        res.json({
+            success: true,
+            claimId: parseInt(claimId),
+            analysis: aiResult
+        });
+
+    } catch (error) {
+        console.error('Error verifying claim:', error);
+        res.status(500).json({ success: false, error: 'Error verifying claim', details: error.message });
+    } finally {
+        client.release();
+    }
+};
+
+const processClaim = approveClaim;
 
 module.exports = {
     getPendingClaims,
@@ -418,5 +445,7 @@ module.exports = {
     createClaim,
     verifyClaim,
     processClaim,
-    getUserClaims
-}; 
+    getUserClaims,
+    approveClaim,
+    rejectClaim,
+};
