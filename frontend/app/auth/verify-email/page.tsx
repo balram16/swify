@@ -8,8 +8,9 @@ import { ArrowLeft, Zap, CheckCircle, Mail } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import Image from "next/image"
 import { Loader } from "@/components/ui/loader"
+import { Suspense } from "react"
 
-export default function VerifyEmailPage() {
+function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const userType = searchParams.get("userType") || "user"
@@ -146,5 +147,13 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center p-4">Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   )
 }

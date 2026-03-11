@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle, Home, FileText } from "lucide-react"
 import confetti from "canvas-confetti"
+import { Suspense } from "react"
 
-export default function ClaimSuccessPage() {
+function ClaimSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const claimId = searchParams.get('claimId') || 'unknown'
@@ -146,6 +147,14 @@ export default function ClaimSuccessPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ClaimSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center p-4">Loading...</div>}>
+      <ClaimSuccessContent />
+    </Suspense>
   )
 }
 

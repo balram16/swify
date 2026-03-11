@@ -23,7 +23,7 @@ import {
   AlertTriangle,
   CreditCard,
   Wallet,
-  Bank,
+  Landmark,
   ArrowUpRight,
   ArrowDownRight
 } from "lucide-react"
@@ -202,7 +202,7 @@ export default function PaymentsPage() {
       case "credit card":
         return <CreditCard className="h-5 w-5 text-blue-600" />
       case "net banking":
-        return <Bank className="h-5 w-5 text-green-600" />
+        return <Landmark className="h-5 w-5 text-green-600" />
       case "upi":
         return <Wallet className="h-5 w-5 text-purple-600" />
       case "cheque":
