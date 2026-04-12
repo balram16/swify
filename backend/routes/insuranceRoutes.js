@@ -1,19 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const InsuranceService = require('../services/insuranceService');
-const { Pool } = require('pg');
+const pool = require('../config/db');
 require('dotenv').config();
 const { ethers } = require('ethers');
 const { authenticateToken } = require('../middlewares/authMiddleware');
-
-// Initialize PostgreSQL pool
-const pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'swiftclaim-actual',
-    password: process.env.DB_PASSWORD || 'balram16',
-    port: process.env.DB_PORT || 5432,
-});
 
 // Initialize insurance service with error handling
 let insuranceService;

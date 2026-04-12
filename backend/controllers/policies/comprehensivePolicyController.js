@@ -1,18 +1,9 @@
-const { Pool } = require('pg');
+const pool = require('../../config/db');
 const InsuranceService = require('../../services/insuranceService');
 const { v4: uuidv4 } = require('uuid');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
-// Database connection
-const pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'swiftclaim-actual',
-    password: process.env.DB_PASSWORD || 'balram16',
-    port: process.env.DB_PORT || 5432,
-});
 
 // Initialize insurance service with error handling
 let insuranceService;

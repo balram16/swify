@@ -17,7 +17,7 @@ export default function Home() {
             <div className="flex flex-col gap-6">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight">
                 <span className="text-[#fa6724]">Swift</span> Insurance Claims with{" "}
-                <span className="text-[#07a6ec]">Blockchain</span> Verification
+                <span className="text-[#07a6ec]">Verification</span> 
               </h1>
               <p className="text-xl text-gray-600 dark:text-gray-400">
                 Experience lightning-fast claim processing, fraud-proof verification, and instant payouts with our

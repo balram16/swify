@@ -1,14 +1,6 @@
-const { Pool } = require('pg');
+const pool = require('../../config/db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-
-const pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'swiftclaim-actual',
-    password: process.env.DB_PASSWORD || 'balram16',
-    port: process.env.DB_PORT || 5432,
-});
 
 const VALID_ROLES = ['customer', 'admin', 'insurer', 'agent'];
 
