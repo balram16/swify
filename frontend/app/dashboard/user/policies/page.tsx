@@ -208,24 +208,8 @@ export default function PoliciesPage() {
         </Tabs>
       </div>
 
-      {filteredPolicies.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="rounded-full bg-muted p-3 mb-4">
-              <FileText className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">No policies found</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              We couldn't find any policies matching your search criteria.
-            </p>
-            <Button variant="outline" onClick={() => {setSearchQuery(""); setActiveTab("all");}}>
-              Clear filters
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6">
-          {filteredPolicies.map((policy) => (
+      <div className="grid gap-6">
+        {filteredPolicies.map((policy) => (
             <Card key={policy.id} className="overflow-hidden">
               <div className={`h-2 ${getPolicyColor(policy.type)}`} />
               <CardHeader className="pb-2">
@@ -316,7 +300,6 @@ export default function PoliciesPage() {
             </Card>
           ))}
         </div>
-      )}
     </div>
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Available Policies</h2>
