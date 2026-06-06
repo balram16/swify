@@ -103,14 +103,8 @@ export default function PurchasePolicyPage() {
   })
 
   const documentTypes = [
-    "KYC Documents",
     "Identity Proof (Aadhar/PAN)",
-    "Address Proof",
-    "Income Proof",
-    "Medical Reports",
-    "Age Proof",
-    "Photograph",
-    "Nominee Documents"
+    "Address Proof"
   ]
 
   const relationships = [
@@ -219,8 +213,7 @@ export default function PurchasePolicyPage() {
       
       case 'documents':
         const requiredDocumentTypes = [
-          "KYC Documents", "Identity Proof (Aadhar/PAN)", "Address Proof", "Income Proof",
-          "Medical Reports", "Age Proof", "Photograph", "Nominee Documents"
+          "Identity Proof (Aadhar/PAN)", "Address Proof"
         ]
         const uploadedTypes = documents.map(doc => doc.type)
         const completedDocs = requiredDocumentTypes.filter(type => uploadedTypes.includes(type)).length
@@ -323,14 +316,8 @@ export default function PurchasePolicyPage() {
 
     // Validate documents - check if all required document types are uploaded
     const requiredDocumentTypes = [
-      "KYC Documents",
       "Identity Proof (Aadhar/PAN)",
-      "Address Proof",
-      "Income Proof",
-      "Medical Reports",
-      "Age Proof",
-      "Photograph",
-      "Nominee Documents"
+      "Address Proof"
     ]
 
     const uploadedTypes = documents.map(doc => doc.type)
