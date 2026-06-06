@@ -263,30 +263,7 @@ export default function HolderPoliciesPage() {
 
         <TabsContent value="purchase">
           <div className="space-y-4">
-            {filteredTemplates.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium mb-2">
-                    {templates.length === 0 ? "No Policies Available" : "No policies found"}
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    {templates.length === 0 
-                      ? "No insurance policies are currently available for purchase." 
-                      : "We couldn't find any policies matching your search criteria."}
-                  </p>
-                  {templates.length > 0 && (
-                    <Button 
-                      onClick={() => setSearchTerm("")}
-                      className="bg-[#07a6ec] hover:bg-[#0696d7]"
-                    >
-                      Clear filters
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              filteredTemplates.map((template) => (
+            {filteredTemplates.map((template) => (
                 <Card key={template.template_id}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -336,44 +313,13 @@ export default function HolderPoliciesPage() {
                   </CardContent>
                 </Card>
               ))
-            )}
+            }
           </div>
         </TabsContent>
 
         <TabsContent value="my-policies">
           <div className="space-y-4">
-            {filteredPolicies.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Shield className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium mb-2">
-                    {policies.length === 0 ? "No Policies Purchased" : "No policies found"}
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    {policies.length === 0 
-                      ? "You haven't purchased any insurance policies yet." 
-                      : "We couldn't find any policies matching your search criteria."}
-                  </p>
-                  {policies.length === 0 ? (
-                    <Button 
-                      onClick={() => setActiveTab("purchase")}
-                      className="bg-[#07a6ec] hover:bg-[#0696d7]"
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Browse Policies
-                    </Button>
-                  ) : (
-                    <Button 
-                      onClick={() => setSearchTerm("")}
-                      className="bg-[#07a6ec] hover:bg-[#0696d7]"
-                    >
-                      Clear filters
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              filteredPolicies.map((policy) => (
+            {filteredPolicies.map((policy) => (
                 <Card key={policy.policy_id}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
