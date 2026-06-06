@@ -15,7 +15,7 @@ function LoadingListener({ setIsLoading }: { setIsLoading: (loading: boolean) =>
 
   useEffect(() => {
     setIsLoading(true)
-    const timer = setTimeout(() => setIsLoading(false), 2000)
+    const timer = setTimeout(() => setIsLoading(false), 500) // Changed from 2000ms to 500ms
     return () => clearTimeout(timer)
   }, [pathname, searchParams, setIsLoading])
 
