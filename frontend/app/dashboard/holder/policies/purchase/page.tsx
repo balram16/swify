@@ -1002,7 +1002,7 @@ export default function PurchasePolicyPage() {
                 ) : null}
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg text-gray-900 dark:text-gray-100">
                 <h4 className="font-medium mb-2">Payment Summary</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
