@@ -60,6 +60,19 @@ async function createMissingTables() {
         `);
         console.log('✅ Created policies table');
 
+        // Add columns for comprehensive policies
+        await pool.query(`
+            ALTER TABLE policies 
+            ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS customer_email VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS customer_address TEXT,
+            ADD COLUMN IF NOT EXISTS plan_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS members_count INTEGER,
+            ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50)
+        `);
+        console.log('✅ Updated policies table with comprehensive columns');
+
         // Create payments table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS payments (
