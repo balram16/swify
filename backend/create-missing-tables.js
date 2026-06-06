@@ -108,6 +108,25 @@ async function createMissingTables() {
         `);
         console.log('✅ Created correct audit_log table');
 
+        // Fix claims table schema
+        await pool.query(`
+            DROP TABLE IF EXISTS claims CASCADE;
+            CREATE TABLE claims (
+                claim_id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+                policy_id INTEGER REFERENCES policies(policy_id) ON DELETE CASCADE,
+                policy_number VARCHAR(100),
+                claim_amount DECIMAL(15,2) NOT NULL,
+                approved_amount DECIMAL(15,2),
+                incident_description TEXT NOT NULL,
+                claim_type VARCHAR(50) NOT NULL,
+                claim_status VARCHAR(50) DEFAULT 'pending_review',
+                filing_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('✅ Fixed claims table schema');
+
         // Create indexes for performance
         await pool.query('CREATE INDEX IF NOT EXISTS idx_policy_templates_provider ON policy_templates(provider_id)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_policy_templates_type ON policy_templates(policy_type)');

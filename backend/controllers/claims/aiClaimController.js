@@ -301,7 +301,7 @@ const getUserClaims = async (req, res) => {
             SELECT c.*, p.policy_number, p.policy_type, p.coverage_amount,
                    pt.policy_type as template_type
             FROM claims c
-            JOIN policies p ON c.policy_id = p.policy_number
+            JOIN policies p ON c.policy_id = p.policy_id
             JOIN policy_templates pt ON p.template_id = pt.template_id
             WHERE c.user_id = $1
             ORDER BY c.filing_date DESC
@@ -335,7 +335,7 @@ const getProviderClaims = async (req, res) => {
                    u.full_name as claimant_name, u.email as claimant_email,
                    pt.policy_type as template_type
             FROM claims c
-            JOIN policies p ON c.policy_id = p.policy_number
+            JOIN policies p ON c.policy_id = p.policy_id
             JOIN policy_templates pt ON p.template_id = pt.template_id
             JOIN users u ON c.user_id = u.user_id
             WHERE p.provider_id = $1
@@ -375,7 +375,7 @@ const processClaim = async (req, res) => {
             SELECT c.*, p.provider_id, p.policy_id as policies_policy_id, p.policy_number, u.full_name as claimant_name,
                    u.email as claimant_email, u.phone as claimant_phone
             FROM claims c
-            JOIN policies p ON c.policy_id = p.policy_number
+            JOIN policies p ON c.policy_id = p.policy_id
             JOIN users u ON c.user_id = u.user_id
             WHERE c.claim_id = $1 AND p.provider_id = $2
         `;
@@ -521,7 +521,7 @@ const getClaimDetails = async (req, res) => {
                    u.full_name as claimant_name, u.email as claimant_email,
                    pt.policy_type as template_type
             FROM claims c
-            JOIN policies p ON c.policy_id = p.policy_number
+            JOIN policies p ON c.policy_id = p.policy_id
             JOIN policy_templates pt ON p.template_id = pt.template_id
             JOIN users u ON c.user_id = u.user_id
             WHERE c.claim_id = $1 AND (c.user_id = $2 OR p.provider_id = $2)

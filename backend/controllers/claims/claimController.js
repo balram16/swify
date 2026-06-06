@@ -23,7 +23,7 @@ const getPendingClaims = async (req, res) => {
                 p.coverage_amount
              FROM claims cl
              JOIN users u ON cl.user_id = u.user_id
-             JOIN policies p ON cl.policy_id = p.policy_number
+             JOIN policies p ON cl.policy_id = p.policy_id
              WHERE p.provider_id::text = $1
              ORDER BY cl.filing_date DESC`,
             [providerId]
@@ -51,7 +51,7 @@ const getClaimDetails = async (req, res) => {
                 p.policy_type, p.coverage_amount, p.provider_id
              FROM claims cl
              JOIN users u ON cl.user_id = u.user_id
-             JOIN policies p ON cl.policy_id = p.policy_number
+             JOIN policies p ON cl.policy_id = p.policy_id
              WHERE cl.claim_id = $1`,
             [req.params.claimId]
         );
@@ -85,7 +85,7 @@ const getUserClaims = async (req, res) => {
                 p.policy_number,
                 p.policy_type
              FROM claims cl
-             JOIN policies p ON cl.policy_id = p.policy_number
+             JOIN policies p ON cl.policy_id = p.policy_id
              WHERE cl.user_id = $1
              ORDER BY cl.filing_date DESC`,
             [req.user.userId]
@@ -192,7 +192,7 @@ const approveClaim = async (req, res) => {
             `SELECT cl.claim_id, cl.claim_amount, cl.claim_status, cl.user_id,
                     p.provider_id, p.policy_number
              FROM claims cl
-             JOIN policies p ON cl.policy_id = p.policy_number
+             JOIN policies p ON cl.policy_id = p.policy_id
              WHERE cl.claim_id = $1`,
             [claimId]
         );
@@ -248,7 +248,7 @@ const rejectClaim = async (req, res) => {
             `SELECT cl.claim_id, cl.claim_status, cl.user_id,
                     p.provider_id, p.policy_number
              FROM claims cl
-             JOIN policies p ON cl.policy_id = p.policy_number
+             JOIN policies p ON cl.policy_id = p.policy_id
              WHERE cl.claim_id = $1`,
             [claimId]
         );
@@ -301,7 +301,7 @@ const verifyClaim = async (req, res) => {
                     cl.incident_description, cl.filing_date, cl.user_id,
                     p.provider_id, p.policy_type, p.coverage_amount, p.policy_number
              FROM claims cl
-             JOIN policies p ON cl.policy_id = p.policy_number
+             JOIN policies p ON cl.policy_id = p.policy_id
              WHERE cl.claim_id = $1`,
             [claimId]
         );
