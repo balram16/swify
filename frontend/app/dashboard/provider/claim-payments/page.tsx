@@ -52,7 +52,7 @@ export default function ClaimPaymentsPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const res = await apiClient.get('/claims/provider')
+      const res = await apiClient.get('/ai-claims/provider')
       if (res.success && res.data) {
         const allClaims = res.data
         
