@@ -4,7 +4,7 @@
   "description": "Backend for SwiftClaim insurance processing",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node setup-database.js && node create-missing-tables.js && node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
