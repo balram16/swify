@@ -153,15 +153,15 @@ export default function HolderPoliciesPage() {
   }
 
   const filteredTemplates = templates.filter(template =>
-    template.policy_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.provider_name.toLowerCase().includes(searchTerm.toLowerCase())
+    (template.policy_type?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+    (template.description?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+    (template.provider_name?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   )
 
   const filteredPolicies = policies.filter(policy =>
-    policy.policy_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    policy.policy_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    policy.provider_name.toLowerCase().includes(searchTerm.toLowerCase())
+    (policy.policy_number?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+    (policy.policy_type?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+    (policy.provider_name?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   )
 
   if (loading) {
