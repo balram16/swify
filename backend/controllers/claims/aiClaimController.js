@@ -166,8 +166,8 @@ const submitClaim = async (req, res) => {
         
         const claimResult = await client.query(claimQuery, [
             userId,
-            policy.policy_number, // $2: policy_id should be string (POL-xxx)
-            policyId, // $3: policy_number should be integer (12)
+            policyId, // $2: policy_id (Integer)
+            policy.policy_number, // $3: policy_number (String)
             claimDescription,
             claimAmount,
             new Date(),
