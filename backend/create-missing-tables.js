@@ -143,6 +143,13 @@ async function createMissingTables() {
                 filing_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+            
+            ALTER TABLE claims 
+            ADD COLUMN IF NOT EXISTS bill_start_date TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS bill_end_date TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS aabha_id VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS flight_id VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS processing_notes TEXT;
         `);
         console.log('✅ Fixed claims table schema');
 
