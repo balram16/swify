@@ -6,6 +6,17 @@ async function createMissingTables() {
     try {
         console.log('Creating missing tables for policy system...');
         
+        // Update users table with missing columns
+        await pool.query(`
+            ALTER TABLE users 
+            ADD COLUMN IF NOT EXISTS upi_id VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS company_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS registration_number VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS company_type VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS designation VARCHAR(100)
+        `);
+        console.log('✅ Updated users table schema');
+        
         // Create policy_templates table
         await pool.query(`
             CREATE TABLE IF NOT EXISTS policy_templates (
