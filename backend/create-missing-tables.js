@@ -86,13 +86,19 @@ async function createMissingTables() {
                 user_id INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
                 title VARCHAR(255) NOT NULL,
                 message TEXT NOT NULL,
-                type VARCHAR(50) NOT NULL CHECK (type IN ('policy_created', 'policy_purchased', 'claim_submitted', 'claim_approved', 'claim_rejected', 'payment_received')),
+                type VARCHAR(50) NOT NULL,
                 is_read BOOLEAN DEFAULT FALSE,
                 related_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ Created notifications table');
+        // Drop the type constraint if it exists from previous deployments
+        try {
+            await pool.query('ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check;');
+        } catch(e) {
+            console.log('Constraint might not exist, skipping drop.');
+        }
+        console.log('✅ Created notifications table (no type constraints)');
 
         // Create correct audit_log table
         await pool.query(`
