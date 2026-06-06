@@ -389,7 +389,7 @@ export default function PurchasePolicyPage() {
           title: "Success",
           description: `Policy purchased successfully! Policy Number: ${response.data.policyNumber}`,
         })
-        router.push('/dashboard/holder/policies')
+        router.push('/dashboard/user')
       } else {
         throw new Error(response.error || 'Failed to purchase policy')
       }
