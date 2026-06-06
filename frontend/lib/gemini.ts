@@ -10,10 +10,10 @@ export async function generateChatResponse(messages: any[]) {
   // For the mockup, we'll return a predefined response
   const responses = [
     "I can help you file a new claim! Just provide some basic details about the incident and upload any relevant documentation.",
-    "Our blockchain verification ensures that all your data is securely stored and every step of the verification process is transparent.",
+    "Our verification ensures that all your data is securely stored and every step of the verification process is transparent.",
     "The smart contract automatically checks your policy coverage and triggers payment when the claim is verified.",
-    "Swift Claim uses blockchain to create an immutable record of your claim, preventing fraud and ensuring transparency.",
-    "Your claim is being processed through our secure blockchain network. You'll receive updates in real-time as it progresses.",
+    "Swift Claim uses secured ledger to create an immutable record of your claim, preventing fraud and ensuring transparency.",
+    "Your claim is being processed through our secure  network. You'll receive updates in real-time as it progresses.",
   ]
 
   // Simulate API delay
@@ -31,7 +31,7 @@ export async function getSystemPrompt() {
 
 Your primary goals are to:
 1. Help users understand how to file and track insurance claims
-2. Explain the blockchain verification process in simple terms
+2. Explain the verification process in simple terms
 3. Guide users through the onboarding process
 4. Answer questions about insurance policies and coverage
 5. Provide updates on claim status when requested

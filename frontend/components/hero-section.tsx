@@ -24,7 +24,7 @@ export default function HeroSection() {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-[#fa6724]" />
-                <span>Blockchain-verified for maximum security</span>
+                <span>verified for maximum security</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-[#fa6724]" />

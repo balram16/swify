@@ -411,7 +411,7 @@ export default function LoginPage() {
             <div className="max-w-md text-white">
               <h2 className="text-3xl font-bold mb-4">Revolutionizing Insurance Claims</h2>
               <p className="text-lg mb-6">
-                Swift Claim reduces claim settlement time from 90 days to under 3 minutes with AI & blockchain
+                Swift Claim reduces claim settlement time from 90 days to under 3 minutes with AI 
                 technology.
               </p>
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
@@ -427,7 +427,7 @@ export default function LoginPage() {
                   </div>
                   <div className="bg-white/20 rounded-lg p-3">
                     <p className="text-sm">
-                      "Swift Claim processed my health insurance claim in just 2 hours! The blockchain verification gave
+                      "Swift Claim processed my health insurance claim in just 2 hours! The verification gave
                       me confidence that everything was secure."
                     </p>
                   </div>

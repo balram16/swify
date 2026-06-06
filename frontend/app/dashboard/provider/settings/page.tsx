@@ -117,7 +117,7 @@ export default function ProviderSettingsPage() {
       <Tabs defaultValue="company">
         <TabsList className="grid grid-cols-3 lg:grid-cols-6 w-full">
           <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="ai">AI & Blockchain</TabsTrigger>
+          <TabsTrigger value="ai">AI </TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="api">API</TabsTrigger>

@@ -30,7 +30,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-[#fa6724]" />
-                  <span>Blockchain-verified for maximum security</span>
+                  <span>Secured-verified for maximum security</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-[#fa6724]" />
@@ -121,9 +121,9 @@ export default function Home() {
       <section className="py-16 px-4 md:px-8 bg-gray-50 dark:bg-gray-900">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Blockchain Technology</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Secured Technology</h2>
             <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
-              Swift Claim leverages blockchain technology to ensure secure, transparent, and efficient insurance claim
+              Swift Claim leverages Secured technology to ensure secure, transparent, and efficient insurance claim
               processing.
             </p>
           </div>
@@ -159,7 +159,7 @@ export default function Home() {
                   <div>
                     <h4 className="font-bold mb-1">Smart Contract Verification</h4>
                     <p className="text-gray-600 dark:text-gray-400">
-                      Blockchain smart contract receives verification proof and validates the claim.
+                      smart contract receives verification proof and validates the claim.
                     </p>
                   </div>
                 </div>
@@ -192,7 +192,7 @@ export default function Home() {
                   <div>
                     <h4 className="font-bold mb-1">Immutable Record</h4>
                     <p className="text-gray-600 dark:text-gray-400">
-                      All verification steps, approvals, and payment are recorded on blockchain.
+                      All verification steps, approvals, and payment are recorded on ledger.
                     </p>
                   </div>
                 </div>

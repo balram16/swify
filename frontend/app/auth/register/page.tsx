@@ -430,10 +430,6 @@ export default function RegisterPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle className="h-4 w-4 text-green-500" />
-                      Set up blockchain integration
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
                       Configure policy templates
                     </li>
                     <li className="flex items-center gap-2">

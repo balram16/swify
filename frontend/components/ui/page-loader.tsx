@@ -31,7 +31,7 @@ const pageLoadingMessages = {
       icon: "📁"
     },
     {
-      message: "Syncing blockchain records...",
+      message: "Syncing records...",
       icon: "⛓️"
     },
     {
@@ -85,7 +85,7 @@ const pageLoadingMessages = {
       icon: "🚀"
     },
     {
-      message: "Setting up blockchain integration...",
+      message: "Setting up integration...",
       icon: "⛓️"
     },
     {

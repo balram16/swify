@@ -17,7 +17,7 @@ const loadingMessages = [
     image: "https://i.ibb.co/XZP3h1bN/claimsaathi-neutral-firm.png"
   },
   {
-    text: "Validating blockchain records...",
+    text: "Validating records...",
     image: "https://i.ibb.co/DgLw71WX/claimsaathi-happy-tooexcited-smilingwithopenmouth.png"
   },
   {

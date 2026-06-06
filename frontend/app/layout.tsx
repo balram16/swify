@@ -11,8 +11,8 @@ import { AuthProvider } from "@/providers/auth-provider"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Swift Claim - AI & Blockchain Insurance Claims",
-  description: "Revolutionizing insurance claims with AI & blockchain: faster, smarter, fraud-proof",
+  title: "Swift Claim - AI & Secured Insurance Claims",
+  description: "Revolutionizing insurance claims with AI & Secured: faster, smarter, fraud-proof",
     generator: 'v0.dev'
 }
 

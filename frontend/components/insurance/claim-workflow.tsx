@@ -88,7 +88,7 @@ export function ClaimWorkflow() {
                     {stage.blockchainVerified && (
                       <Badge variant="outline" className="bg-secondary/10 text-secondary">
                         <Shield className="h-3 w-3 mr-1" />
-                        Blockchain Verified
+                        Verified
                       </Badge>
                     )}
                   </div>

@@ -1084,10 +1084,10 @@ export default function NewClaimPage() {
                 <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
                   <h3 className="font-medium flex items-center">
                     <Clock className="h-5 w-5 mr-2 text-[#07a6ec]" />
-                    Blockchain-Verified Instant Payments
+                    Verified Instant Payments
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Your claim will be processed through our blockchain network for secure and transparent verification.
+                    Your claim will be processed through our network for secure and transparent verification.
                     Once approved, payment will be instantly transferred to your selected payment method.
                   </p>
                 </div>

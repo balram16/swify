@@ -79,7 +79,6 @@ export default function LandingHeader() {
               className="px-4 py-2 text-sm font-medium hover:bg-muted rounded-md"
               onClick={() => setIsMenuOpen(false)}
             >
-              Blockchain
             </Link>
             <Link
               href="/pricing"
