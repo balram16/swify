@@ -149,7 +149,37 @@ async function createMissingTables() {
             ADD COLUMN IF NOT EXISTS bill_end_date TIMESTAMP,
             ADD COLUMN IF NOT EXISTS aabha_id VARCHAR(100),
             ADD COLUMN IF NOT EXISTS flight_id VARCHAR(100),
-            ADD COLUMN IF NOT EXISTS processing_notes TEXT;
+            ADD COLUMN IF NOT EXISTS processing_notes TEXT,
+            ADD COLUMN IF NOT EXISTS hospital_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS treatment_details TEXT,
+            ADD COLUMN IF NOT EXISTS abdm_data TEXT,
+            ADD COLUMN IF NOT EXISTS bank_account VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS ifsc_code VARCHAR(20),
+            ADD COLUMN IF NOT EXISTS beneficiary_name VARCHAR(255),
+            ADD COLUMN IF NOT EXISTS ai_analysis TEXT,
+            ADD COLUMN IF NOT EXISTS fraud_score DECIMAL(5,2),
+            ADD COLUMN IF NOT EXISTS risk_level VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS ai_confidence DECIMAL(5,2),
+            ADD COLUMN IF NOT EXISTS provider_comments TEXT,
+            ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS rejected_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP,
+            ADD COLUMN IF NOT EXISTS payout_id VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS payout_status VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS payout_amount DECIMAL(15,2);
+            
+            CREATE TABLE IF NOT EXISTS claim_documents (
+                document_id SERIAL PRIMARY KEY,
+                claim_id INTEGER REFERENCES claims(claim_id) ON DELETE CASCADE,
+                document_type VARCHAR(100) NOT NULL,
+                document_name VARCHAR(255) NOT NULL,
+                file_path TEXT NOT NULL,
+                file_size INTEGER,
+                mime_type VARCHAR(100),
+                uploaded_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         `);
         console.log('✅ Fixed claims table schema');
 
