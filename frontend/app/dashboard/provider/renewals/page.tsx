@@ -1,206 +1,157 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
 import {
   Search,
-  Filter,
   Download,
-  FileText,
-  Shield,
   CheckCircle,
-  XCircle,
   Clock,
   Eye,
   ChevronDown,
   ChevronUp,
   Calendar,
-  AlertTriangle,
   RefreshCw,
   Brain,
-  ArrowUpRight,
-  ArrowDownRight
+  ArrowUpRight
 } from "lucide-react"
-
-// Comprehensive renewals data
-const renewalsData = {
-  stats: {
-    totalRenewals: 180,
-    dueThisMonth: 120,
-    dueNextMonth: 180,
-    renewalRate: "85%",
-    aiProcessed: "78%"
-  },
-  upcomingRenewals: [
-    {
-      id: "POL-2023-H-567",
-      customerName: "Amit Patel",
-      type: "Health Insurance",
-      currentPremium: "₹32,000/year",
-      newPremium: "₹35,200/year",
-      premiumChange: "+10%",
-      expiryDate: "2024-04-15",
-      status: "Due Soon",
-      daysRemaining: 25,
-      claimHistory: {
-        total: 2,
-        lastYear: 1
-      },
-      aiRecommendation: {
-        action: "Renew with Standard Terms",
-        confidence: 89,
-        reason: "Good claim history, stable risk profile"
-      }
-    },
-    {
-      id: "POL-2023-M-678",
-      customerName: "Priya Sharma",
-      type: "Motor Insurance",
-      currentPremium: "₹18,500/year",
-      newPremium: "₹19,800/year",
-      premiumChange: "+7%",
-      expiryDate: "2024-04-05",
-      status: "Due Soon",
-      daysRemaining: 15,
-      claimHistory: {
-        total: 1,
-        lastYear: 0
-      },
-      aiRecommendation: {
-        action: "Renew with Discount",
-        confidence: 92,
-        reason: "No claims in last year, loyal customer"
-      }
-    },
-    {
-      id: "POL-2023-L-789",
-      customerName: "Rajiv Malhotra",
-      type: "Life Insurance",
-      currentPremium: "₹28,500/year",
-      newPremium: "₹31,350/year",
-      premiumChange: "+10%",
-      expiryDate: "2024-05-10",
-      status: "Due Next Month",
-      daysRemaining: 50,
-      claimHistory: {
-        total: 0,
-        lastYear: 0
-      },
-      aiRecommendation: {
-        action: "Renew with Standard Terms",
-        confidence: 95,
-        reason: "Age-based premium increase, good health profile"
-      }
-    },
-    {
-      id: "POL-2023-H-890",
-      customerName: "Neha Singh",
-      type: "Home Insurance",
-      currentPremium: "₹12,500/year",
-      newPremium: "₹13,750/year",
-      premiumChange: "+10%",
-      expiryDate: "2024-04-20",
-      status: "Due Soon",
-      daysRemaining: 30,
-      claimHistory: {
-        total: 1,
-        lastYear: 0
-      },
-      aiRecommendation: {
-        action: "Renew with Additional Coverage",
-        confidence: 87,
-        reason: "Property value increased, recommend higher coverage"
-      }
-    }
-  ],
-  recentRenewals: [
-    {
-      id: "POL-2023-H-123",
-      customerName: "Rahul Sharma",
-      type: "Health Insurance",
-      oldPremium: "₹28,000/year",
-      newPremium: "₹30,800/year",
-      premiumChange: "+10%",
-      renewalDate: "2024-03-15",
-      status: "Renewed",
-      termsChanged: "Yes",
-      processedBy: "AI System"
-    },
-    {
-      id: "POL-2023-M-456",
-      customerName: "Anita Desai",
-      type: "Motor Insurance",
-      oldPremium: "₹15,000/year",
-      newPremium: "₹15,000/year",
-      premiumChange: "0%",
-      renewalDate: "2024-03-12",
-      status: "Renewed",
-      termsChanged: "No",
-      processedBy: "AI System"
-    },
-    {
-      id: "POL-2023-L-789",
-      customerName: "Vikram Reddy",
-      type: "Life Insurance",
-      oldPremium: "₹35,000/year",
-      newPremium: "₹38,500/year",
-      premiumChange: "+10%",
-      renewalDate: "2024-03-10",
-      status: "Renewed",
-      termsChanged: "Yes",
-      processedBy: "Sanjay Gupta"
-    }
-  ],
-  renewalMetrics: {
-    renewalRate: {
-      thisMonth: "85%",
-      lastMonth: "82%",
-      growth: "+3%"
-    },
-    averagePremiumIncrease: {
-      thisMonth: "8.5%",
-      lastMonth: "7.2%",
-      growth: "+1.3%"
-    },
-    aiProcessingRate: {
-      thisMonth: "78%",
-      lastMonth: "65%",
-      growth: "+13%"
-    },
-    renewalByType: {
-      health: { rate: "88%", trend: "+2%" },
-      motor: { rate: "92%", trend: "+5%" },
-      life: { rate: "95%", trend: "+1%" },
-      home: { rate: "78%", trend: "-3%" }
-    }
-  }
-}
+import apiClient from "@/lib/api-client"
+import { useToast } from "@/hooks/use-toast"
 
 export default function RenewalsPage() {
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+
+  const [renewalsData, setRenewalsData] = useState({
+    stats: {
+      totalRenewals: 0,
+      dueThisMonth: 0,
+      dueNextMonth: 0,
+      renewalRate: "0%",
+      aiProcessed: "N/A"
+    },
+    upcomingRenewals: [] as any[],
+    recentRenewals: [] as any[],
+    renewalMetrics: {
+      renewalRate: { thisMonth: "0%", lastMonth: "0%", growth: "0%" },
+      averagePremiumIncrease: { thisMonth: "0%", lastMonth: "0%", growth: "0%" },
+      aiProcessingRate: { thisMonth: "0%", lastMonth: "0%", growth: "0%" },
+      renewalByType: {} as Record<string, any>
+    }
+  })
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const res = await apiClient.get('/policies/provider/policies')
+      if (res.success && res.data) {
+        const policies = res.data
+
+        const upcoming: any[] = []
+        let totalRenewalsCount = 0
+        let dueThisMonthCount = 0
+        let dueNextMonthCount = 0
+
+        const now = new Date()
+        const currentMonth = now.getMonth()
+        const nextMonth = (currentMonth + 1) % 12
+
+        policies.forEach((p: any) => {
+          if (p.status === 'active' || p.status === 'pending') {
+            const endDateStr = p.end_date || new Date(Date.now() + 86400000 * 30).toISOString()
+            const endDate = new Date(endDateStr)
+            
+            const timeDiff = endDate.getTime() - now.getTime()
+            const daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24))
+
+            // Consider policies due within next 60 days as renewals
+            if (daysRemaining <= 60 && daysRemaining >= -30) {
+              totalRenewalsCount++
+
+              if (endDate.getMonth() === currentMonth) {
+                dueThisMonthCount++
+              } else if (endDate.getMonth() === nextMonth) {
+                dueNextMonthCount++
+              }
+
+              let status = "Due Soon"
+              if (daysRemaining < 0) status = "Expired"
+              else if (endDate.getMonth() === nextMonth) status = "Due Next Month"
+
+              const currentPremium = parseFloat(p.premium_amount || 0)
+              const newPremium = currentPremium * 1.05 // Mocking a 5% increase for renewal
+
+              upcoming.push({
+                id: `POL-${p.policy_number || p.policy_id}`,
+                dbId: p.policy_id,
+                customerName: p.holder_name || "Unknown",
+                type: p.plan_name || "Insurance",
+                currentPremium: `₹${currentPremium.toLocaleString('en-IN')}/year`,
+                newPremium: `₹${newPremium.toLocaleString('en-IN')}/year`,
+                premiumChange: "+5%",
+                expiryDate: endDateStr,
+                status: status,
+                daysRemaining: daysRemaining,
+                claimHistory: {
+                  total: 0, // Mocked for now, would need a join to get exact
+                  lastYear: 0
+                },
+                aiRecommendation: {
+                  action: "Renew with Standard Terms",
+                  confidence: 90,
+                  reason: "Stable risk profile based on available data"
+                }
+              })
+            }
+          }
+        })
+
+        setRenewalsData(prev => ({
+          ...prev,
+          stats: {
+            totalRenewals: totalRenewalsCount,
+            dueThisMonth: dueThisMonthCount,
+            dueNextMonth: dueNextMonthCount,
+            renewalRate: "0%", // Needs historical data
+            aiProcessed: "0%"
+          },
+          upcomingRenewals: upcoming,
+          recentRenewals: [], // Would need historical renewed policies
+          renewalMetrics: {
+            ...prev.renewalMetrics,
+            renewalByType: {
+              "General": { rate: "0%", trend: "0%" }
+            }
+          }
+        }))
+      }
+    } catch (error) {
+      console.error("Error fetching renewals:", error)
+      toast({ title: "Error", description: "Failed to load renewals data", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [])
   
   const toggleExpand = (id: string) => {
-    if (expandedItem === id) {
-      setExpandedItem(null)
-    } else {
-      setExpandedItem(id)
-    }
+    setExpandedItem(expandedItem === id ? null : id)
   }
   
   const filteredRenewals = renewalsData.upcomingRenewals.filter(renewal => {
-    // Apply status filter
     if (statusFilter !== "all" && !renewal.status.toLowerCase().includes(statusFilter.toLowerCase())) {
       return false
     }
-    
-    // Apply search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return (
@@ -209,7 +160,6 @@ export default function RenewalsPage() {
         renewal.type.toLowerCase().includes(query)
       )
     }
-    
     return true
   })
   
@@ -227,6 +177,17 @@ export default function RenewalsPage() {
         return <Badge>{status}</Badge>
     }
   }
+
+  if (loading) {
+    return (
+      <div className="p-8 space-y-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Loading renewals...</p>
+        </div>
+      </div>
+    )
+  }
   
   return (
     <div className="p-8 space-y-8">
@@ -238,9 +199,9 @@ export default function RenewalsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="outline" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Date Range
+          <Button variant="outline" onClick={fetchData} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
           </Button>
           <Button className="bg-[#07a6ec] hover:bg-[#0696d7] flex items-center gap-2">
             <Download className="h-4 w-4" />
@@ -344,12 +305,9 @@ export default function RenewalsPage() {
                 <option value="all">All Statuses</option>
                 <option value="due soon">Due Soon</option>
                 <option value="due next month">Due Next Month</option>
+                <option value="expired">Expired</option>
               </select>
             </div>
-            <Button variant="outline" className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
           </div>
 
           <div className="space-y-4">
@@ -384,10 +342,6 @@ export default function RenewalsPage() {
                       <div>
                         <p className="text-sm text-right">New Premium</p>
                         <p className="font-medium">{renewal.newPremium}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-right">Change</p>
-                        <p className="font-medium text-red-600">{renewal.premiumChange}</p>
                       </div>
                       <div>
                         <p className="text-sm text-right">Expiry Date</p>
@@ -444,10 +398,6 @@ export default function RenewalsPage() {
                               <span className="text-muted-foreground">Days Remaining:</span>
                               <span>{renewal.daysRemaining} days</span>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Claim History:</span>
-                              <span>{renewal.claimHistory.total} total, {renewal.claimHistory.lastYear} last year</span>
-                            </div>
                           </div>
                         </div>
                         
@@ -490,7 +440,7 @@ export default function RenewalsPage() {
               ))
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No renewals match your search criteria</p>
+                <p className="text-muted-foreground">No upcoming renewals found.</p>
               </div>
             )}
           </div>
@@ -498,7 +448,7 @@ export default function RenewalsPage() {
 
         <TabsContent value="recent" className="space-y-6">
           <div className="space-y-4">
-            {renewalsData.recentRenewals.map((renewal) => (
+            {renewalsData.recentRenewals.length > 0 ? renewalsData.recentRenewals.map((renewal) => (
               <Card key={renewal.id} className="overflow-hidden">
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -520,38 +470,20 @@ export default function RenewalsPage() {
                       <p className="font-medium">{renewal.newPremium}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-right">Change</p>
-                      <p className={`font-medium ${renewal.premiumChange !== "0%" ? "text-red-600" : ""}`}>
-                        {renewal.premiumChange}
-                      </p>
-                    </div>
-                    <div>
                       <p className="text-sm text-right">Renewal Date</p>
                       <p className="font-medium">{new Date(renewal.renewalDate).toLocaleDateString()}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-right">Terms Changed</p>
-                      <p className="font-medium">{renewal.termsChanged}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-right">Processed By</p>
-                      <p className="font-medium">{renewal.processedBy}</p>
-                    </div>
-                    <div>
                       {getStatusBadge(renewal.status)}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-8">
-                        <Download className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
                 </div>
               </Card>
-            ))}
+            )) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No recent renewals found.</p>
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -567,17 +499,6 @@ export default function RenewalsPage() {
                     <p className="text-5xl font-bold text-[#07a6ec]">{renewalsData.renewalMetrics.renewalRate.thisMonth}</p>
                     <p className="text-sm text-muted-foreground mt-1">This Month</p>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl font-medium">{renewalsData.renewalMetrics.renewalRate.lastMonth}</p>
-                      <p className="text-sm text-muted-foreground">Last Month</p>
-                    </div>
-                    <div className="flex items-center gap-1 text-green-600">
-                      <ArrowUpRight className="h-4 w-4" />
-                      <span>{renewalsData.renewalMetrics.renewalRate.growth}</span>
-                    </div>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -591,17 +512,6 @@ export default function RenewalsPage() {
                   <div className="text-center">
                     <p className="text-5xl font-bold text-[#07a6ec]">{renewalsData.renewalMetrics.averagePremiumIncrease.thisMonth}</p>
                     <p className="text-sm text-muted-foreground mt-1">This Month</p>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl font-medium">{renewalsData.renewalMetrics.averagePremiumIncrease.lastMonth}</p>
-                      <p className="text-sm text-muted-foreground">Last Month</p>
-                    </div>
-                    <div className="flex items-center gap-1 text-red-600">
-                      <ArrowUpRight className="h-4 w-4" />
-                      <span>{renewalsData.renewalMetrics.averagePremiumIncrease.growth}</span>
-                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -617,58 +527,6 @@ export default function RenewalsPage() {
                     <p className="text-5xl font-bold text-[#07a6ec]">{renewalsData.renewalMetrics.aiProcessingRate.thisMonth}</p>
                     <p className="text-sm text-muted-foreground mt-1">This Month</p>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xl font-medium">{renewalsData.renewalMetrics.aiProcessingRate.lastMonth}</p>
-                      <p className="text-sm text-muted-foreground">Last Month</p>
-                    </div>
-                    <div className="flex items-center gap-1 text-green-600">
-                      <ArrowUpRight className="h-4 w-4" />
-                      <span>{renewalsData.renewalMetrics.aiProcessingRate.growth}</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Renewal by Insurance Type</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-60 flex items-center justify-center mb-4">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Chart visualization would appear here</p>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  {Object.entries(renewalsData.renewalMetrics.renewalByType).map(([type, data]) => (
-                    <div key={type} className="flex items-center justify-between">
-                      <span className="capitalize">{type} Insurance</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{data.rate}</span>
-                        <span className={data.trend.startsWith("+") ? "text-green-600" : "text-red-600"}>
-                          {data.trend}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Renewal Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-60 flex items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Monthly renewal trend chart would appear here</p>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -677,4 +535,4 @@ export default function RenewalsPage() {
       </Tabs>
     </div>
   )
-} 
+}

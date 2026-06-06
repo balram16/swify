@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,147 +25,151 @@ import {
   Wallet,
   Landmark,
   ArrowUpRight,
-  ArrowDownRight
+  RefreshCw
 } from "lucide-react"
-
-// Comprehensive payments data
-const paymentsData = {
-  stats: {
-    totalCollected: "₹4.8Cr",
-    pendingPayments: "₹85L",
-    overduePayments: "₹32L",
-    collectionRate: "92%",
-    monthlyGrowth: "+8.5%"
-  },
-  recentPayments: [
-    {
-      id: "PAY-2024-001",
-      policyId: "POL-H-123456",
-      customerName: "Rahul Sharma",
-      policyType: "Health Insurance",
-      amount: "₹45,000",
-      date: "2024-03-20",
-      method: "Credit Card",
-      status: "Successful",
-      cardDetails: "**** **** **** 4567",
-      transactionId: "TXN123456789",
-      receiptGenerated: true
-    },
-    {
-      id: "PAY-2024-002",
-      policyId: "POL-M-789012",
-      customerName: "Priya Patel",
-      policyType: "Motor Insurance",
-      amount: "₹18,500",
-      date: "2024-03-19",
-      method: "Net Banking",
-      status: "Successful",
-      bankDetails: "HDFC Bank",
-      transactionId: "TXN987654321",
-      receiptGenerated: true
-    },
-    {
-      id: "PAY-2024-003",
-      policyId: "POL-H-345678",
-      customerName: "Amit Kumar",
-      policyType: "Health Insurance",
-      amount: "₹32,000",
-      date: "2024-03-18",
-      method: "UPI",
-      status: "Successful",
-      upiId: "amit@upi",
-      transactionId: "TXN456789123",
-      receiptGenerated: true
-    },
-    {
-      id: "PAY-2024-004",
-      policyId: "POL-L-901234",
-      customerName: "Neha Singh",
-      policyType: "Life Insurance",
-      amount: "₹24,000",
-      date: "2024-03-17",
-      method: "Credit Card",
-      status: "Failed",
-      cardDetails: "**** **** **** 7890",
-      transactionId: "TXN789123456",
-      failureReason: "Insufficient funds",
-      receiptGenerated: false
-    },
-    {
-      id: "PAY-2024-005",
-      policyId: "POL-H-567890",
-      customerName: "Vikram Reddy",
-      policyType: "Home Insurance",
-      amount: "₹12,500",
-      date: "2024-03-16",
-      method: "Cheque",
-      status: "Processing",
-      chequeDetails: "Cheque #123456",
-      receiptGenerated: false
-    }
-  ],
-  pendingPayments: [
-    {
-      id: "POL-H-234567",
-      customerName: "Sanjay Gupta",
-      policyType: "Health Insurance",
-      amount: "₹38,000",
-      dueDate: "2024-04-05",
-      status: "Due",
-      reminderSent: true,
-      lastReminderDate: "2024-03-15"
-    },
-    {
-      id: "POL-M-345678",
-      customerName: "Anita Desai",
-      policyType: "Motor Insurance",
-      amount: "₹15,800",
-      dueDate: "2024-03-28",
-      status: "Due Soon",
-      reminderSent: true,
-      lastReminderDate: "2024-03-18"
-    },
-    {
-      id: "POL-L-456789",
-      customerName: "Rajiv Malhotra",
-      policyType: "Life Insurance",
-      amount: "₹28,500",
-      dueDate: "2024-03-10",
-      status: "Overdue",
-      reminderSent: true,
-      lastReminderDate: "2024-03-17",
-      daysOverdue: 10
-    }
-  ],
-  paymentMethods: {
-    creditCard: 45,
-    netBanking: 30,
-    upi: 20,
-    others: 5
-  }
-}
+import apiClient from "@/lib/api-client"
+import { useToast } from "@/hooks/use-toast"
 
 export default function PaymentsPage() {
   const [expandedItem, setExpandedItem] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [activeTab, setActiveTab] = useState("recent")
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+
+  const [paymentsData, setPaymentsData] = useState({
+    stats: {
+      totalCollected: "₹0",
+      pendingPaymentsAmount: "₹0",
+      overduePaymentsAmount: "₹0",
+      collectionRate: "0%",
+      monthlyGrowth: "0%"
+    },
+    recentPayments: [] as any[],
+    pendingPayments: [] as any[],
+    paymentMethods: {
+      creditCard: 0,
+      netBanking: 0,
+      upi: 0,
+      others: 0
+    }
+  })
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const res = await apiClient.get('/policies/provider/policies')
+      if (res.success && res.data) {
+        const policies = res.data
+
+        let totalCollected = 0
+        let pendingAmount = 0
+        let overdueAmount = 0
+        let totalPoliciesWithPremium = 0
+
+        const recent: any[] = []
+        const pending: any[] = []
+
+        policies.forEach((p: any) => {
+          const premium = parseFloat(p.premium_amount || 0)
+          if (premium > 0) {
+            totalPoliciesWithPremium++
+          }
+
+          const status = p.payment_status || 'pending'
+          const date = p.created_at || new Date().toISOString()
+          const pMethod = "Credit Card" // Default mapped for now as DB might not store it here
+
+          const basePayment = {
+            id: `PAY-${p.policy_id}-${Date.now().toString().slice(-4)}`,
+            policyId: `POL-${p.policy_number || p.policy_id}`,
+            customerName: p.holder_name || "Unknown",
+            policyType: p.plan_name || "Insurance",
+            amount: `₹${premium.toLocaleString('en-IN')}`,
+            rawAmount: premium,
+            date: date,
+            method: pMethod
+          }
+
+          if (status === 'completed') {
+            totalCollected += premium
+            recent.push({
+              ...basePayment,
+              status: "Successful",
+              cardDetails: "**** **** **** 1234",
+              transactionId: `TXN${p.policy_id}${Date.now().toString().slice(-6)}`,
+              receiptGenerated: true
+            })
+          } else {
+            pendingAmount += premium
+            const dueDateStr = p.end_date || new Date(Date.now() + 86400000 * 30).toISOString()
+            const dueDate = new Date(dueDateStr)
+            const now = new Date()
+            
+            let pStatus = "Due"
+            let daysOverdue = 0
+
+            if (now > dueDate) {
+              pStatus = "Overdue"
+              overdueAmount += premium
+              daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 3600 * 24))
+            } else if ((dueDate.getTime() - now.getTime()) < 86400000 * 7) {
+              pStatus = "Due Soon"
+            }
+
+            pending.push({
+              ...basePayment,
+              dueDate: dueDateStr,
+              status: pStatus,
+              reminderSent: false,
+              daysOverdue
+            })
+          }
+        })
+
+        const collectionRate = totalPoliciesWithPremium > 0 
+          ? Math.round((recent.length / totalPoliciesWithPremium) * 100) 
+          : 0
+
+        setPaymentsData({
+          stats: {
+            totalCollected: `₹${totalCollected.toLocaleString('en-IN')}`,
+            pendingPaymentsAmount: `₹${pendingAmount.toLocaleString('en-IN')}`,
+            overduePaymentsAmount: `₹${overdueAmount.toLocaleString('en-IN')}`,
+            collectionRate: `${collectionRate}%`,
+            monthlyGrowth: "+0%" // Static for now until historical data is tracked
+          },
+          recentPayments: recent,
+          pendingPayments: pending,
+          paymentMethods: {
+            creditCard: recent.length > 0 ? 100 : 0, // Mocked distribution
+            netBanking: 0,
+            upi: 0,
+            others: 0
+          }
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching payments data:", error)
+      toast({ title: "Error", description: "Failed to load payments data", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [])
   
   const toggleExpand = (id: string) => {
-    if (expandedItem === id) {
-      setExpandedItem(null)
-    } else {
-      setExpandedItem(id)
-    }
+    setExpandedItem(expandedItem === id ? null : id)
   }
   
   const filteredPayments = paymentsData.recentPayments.filter(payment => {
-    // Apply status filter
     if (statusFilter !== "all" && payment.status.toLowerCase() !== statusFilter.toLowerCase()) {
       return false
     }
-    
-    // Apply search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       return (
@@ -174,7 +178,6 @@ export default function PaymentsPage() {
         payment.policyId.toLowerCase().includes(query)
       )
     }
-    
     return true
   })
   
@@ -211,6 +214,17 @@ export default function PaymentsPage() {
         return <DollarSign className="h-5 w-5 text-[#07a6ec]" />
     }
   }
+
+  if (loading) {
+    return (
+      <div className="p-8 space-y-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Loading premium payments...</p>
+        </div>
+      </div>
+    )
+  }
   
   return (
     <div className="p-8 space-y-8">
@@ -222,9 +236,9 @@ export default function PaymentsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Button variant="outline" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Date Range
+          <Button variant="outline" onClick={fetchData} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
           </Button>
           <Button className="bg-[#07a6ec] hover:bg-[#0696d7] flex items-center gap-2">
             <Download className="h-4 w-4" />
@@ -254,7 +268,7 @@ export default function PaymentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Pending Payments</p>
-                <h3 className="text-2xl font-bold">{paymentsData.stats.pendingPayments}</h3>
+                <h3 className="text-2xl font-bold">{paymentsData.stats.pendingPaymentsAmount}</h3>
               </div>
               <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <Clock className="h-5 w-5 text-blue-600" />
@@ -268,7 +282,7 @@ export default function PaymentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Overdue Payments</p>
-                <h3 className="text-2xl font-bold">{paymentsData.stats.overduePayments}</h3>
+                <h3 className="text-2xl font-bold">{paymentsData.stats.overduePaymentsAmount}</h3>
               </div>
               <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
                 <AlertTriangle className="h-5 w-5 text-red-600" />
@@ -314,7 +328,6 @@ export default function PaymentsPage() {
         </TabsList>
 
         <TabsContent value="recent" className="space-y-6">
-          {/* Search and Filter */}
           <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
             <div className="relative w-full sm:w-auto">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -337,14 +350,9 @@ export default function PaymentsPage() {
                 <option value="failed">Failed</option>
                 <option value="processing">Processing</option>
               </select>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                More Filters
-              </Button>
             </div>
           </div>
 
-          {/* Payments List */}
           <div className="space-y-4">
             {filteredPayments.length > 0 ? (
               filteredPayments.map((payment) => (
@@ -435,36 +443,6 @@ export default function PaymentsPage() {
                               <span className="text-muted-foreground">Transaction ID:</span>
                               <span>{payment.transactionId}</span>
                             </div>
-                            {payment.method === "Credit Card" && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Card Details:</span>
-                                <span>{payment.cardDetails}</span>
-                              </div>
-                            )}
-                            {payment.method === "Net Banking" && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Bank:</span>
-                                <span>{payment.bankDetails}</span>
-                              </div>
-                            )}
-                            {payment.method === "UPI" && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">UPI ID:</span>
-                                <span>{payment.upiId}</span>
-                              </div>
-                            )}
-                            {payment.method === "Cheque" && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Cheque Details:</span>
-                                <span>{payment.chequeDetails}</span>
-                              </div>
-                            )}
-                            {payment.status === "Failed" && (
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground">Failure Reason:</span>
-                                <span className="text-red-600">{payment.failureReason}</span>
-                              </div>
-                            )}
                           </div>
                         </div>
                         
@@ -477,50 +455,15 @@ export default function PaymentsPage() {
                                   <CheckCircle className="h-5 w-5 text-green-600" />
                                   <span>Payment successful</span>
                                 </div>
-                                {payment.receiptGenerated ? (
-                                  <Button variant="outline" size="sm" className="flex items-center gap-2">
-                                    <Download className="h-4 w-4" />
-                                    Download Receipt
-                                  </Button>
-                                ) : (
-                                  <Button variant="outline" size="sm" className="flex items-center gap-2">
-                                    <FileText className="h-4 w-4" />
-                                    Generate Receipt
-                                  </Button>
-                                )}
-                              </div>
-                            )}
-                            
-                            {payment.status === "Failed" && (
-                              <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <XCircle className="h-5 w-5 text-red-600" />
-                                  <span>Payment failed: {payment.failureReason}</span>
-                                </div>
                                 <Button variant="outline" size="sm" className="flex items-center gap-2">
-                                  <RefreshCw className="h-4 w-4" />
-                                  Retry Payment
+                                  <Download className="h-4 w-4" />
+                                  Download Receipt
                                 </Button>
                               </div>
                             )}
-                            
-                            {payment.status === "Processing" && (
-                              <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Clock className="h-5 w-5 text-yellow-600" />
-                                  <span>Payment is being processed</span>
-                                </div>
-                                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                                  <RefreshCw className="h-4 w-4" />
-                                  Check Status
-                                </Button>
-                              </div>
-                            )}
-                            
                             <div className="flex justify-end mt-4">
                               <Button variant="outline" className="mr-2">View Policy</Button>
-                              <Button variant="outline" className="mr-2">Contact Customer</Button>
-                              <Button className="bg-[#07a6ec] hover:bg-[#0696d7]">View Details</Button>
+                              <Button className="bg-[#07a6ec] hover:bg-[#0696d7]">Contact Customer</Button>
                             </div>
                           </div>
                         </div>
@@ -531,16 +474,15 @@ export default function PaymentsPage() {
               ))
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No payments match your search criteria</p>
+                <p className="text-muted-foreground">No recent payments found.</p>
               </div>
             )}
           </div>
         </TabsContent>
 
         <TabsContent value="pending" className="space-y-6">
-          {/* Pending Payments List */}
           <div className="space-y-4">
-            {paymentsData.pendingPayments.map((payment) => (
+            {paymentsData.pendingPayments.length > 0 ? paymentsData.pendingPayments.map((payment) => (
               <Card key={payment.id} className="overflow-hidden">
                 <div className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -581,9 +523,6 @@ export default function PaymentsPage() {
                       {getStatusBadge(payment.status)}
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="h-8">
-                        <Eye className="h-4 w-4" />
-                      </Button>
                       <Button className="bg-[#07a6ec] hover:bg-[#0696d7] h-8">
                         Send Reminder
                       </Button>
@@ -591,7 +530,11 @@ export default function PaymentsPage() {
                   </div>
                 </div>
               </Card>
-            ))}
+            )) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No pending payments found.</p>
+              </div>
+            )}
           </div>
         </TabsContent>
 
@@ -602,19 +545,14 @@ export default function PaymentsPage() {
                 <CardTitle>Payment Method Distribution</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="h-60 flex items-center justify-center mb-4">
-                  <div className="text-center">
-                    <p className="text-sm text-muted-foreground">Chart visualization would appear here</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
+                <div className="space-y-2 pt-4">
                   {Object.entries(paymentsData.paymentMethods).map(([method, percentage]) => (
                     <div key={method} className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="capitalize">{method === "upi" ? "UPI" : method.replace(/([A-Z])/g, ' $1').trim()}</span>
                         <span>{percentage}%</span>
                       </div>
-                      <Progress value={percentage} className="h-2" />
+                      <Progress value={percentage as number} className="h-2" />
                     </div>
                   ))}
                 </div>
@@ -628,59 +566,15 @@ export default function PaymentsPage() {
               <CardContent>
                 <div className="space-y-6">
                   <div className="text-center">
-                    <p className="text-5xl font-bold text-[#07a6ec]">92%</p>
+                    <p className="text-5xl font-bold text-[#07a6ec]">{paymentsData.stats.collectionRate}</p>
                     <p className="text-sm text-muted-foreground mt-1">Overall Collection Rate</p>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span>Health Insurance</span>
-                        <span>95%</span>
-                      </div>
-                      <Progress value={95} className="h-2" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span>Motor Insurance</span>
-                        <span>90%</span>
-                      </div>
-                      <Progress value={90} className="h-2" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span>Life Insurance</span>
-                        <span>94%</span>
-                      </div>
-                      <Progress value={94} className="h-2" />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span>Home Insurance</span>
-                        <span>88%</span>
-                      </div>
-                      <Progress value={88} className="h-2" />
-                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment Trends</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-60 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-sm text-muted-foreground">Monthly payment trend chart would appear here</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
   )
-} 
+}

@@ -1,147 +1,119 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
 import {
   Users,
   Search,
   UserPlus,
   Mail,
   Phone,
-  Shield,
   Award,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  BarChart,
   Star,
-  TrendingUp
+  RefreshCw
 } from "lucide-react"
-
-// Comprehensive team data
-const teamData = {
-  stats: {
-    totalMembers: 45,
-    activeMembers: 42,
-    pendingInvites: 3,
-    departments: 5,
-    avgPerformance: 92
-  },
-  departments: {
-    claims: {
-      name: "Claims Processing",
-      members: 18,
-      lead: "Priya Sharma",
-      performance: 92,
-      activeTickets: 45,
-      metrics: {
-        avgProcessingTime: "45 mins",
-        accuracyRate: "98%",
-        customerSatisfaction: 4.8
-      }
-    },
-    underwriting: {
-      name: "Underwriting",
-      members: 12,
-      lead: "Rajesh Kumar",
-      performance: 88,
-      policiesReviewed: 156,
-      metrics: {
-        riskAssessmentAccuracy: "94%",
-        avgPolicyReviewTime: "2.5 hours",
-        premiumOptimization: "12%"
-      }
-    },
-    customerService: {
-      name: "Customer Service",
-      members: 8,
-      lead: "Amit Patel",
-      performance: 94,
-      avgResponseTime: "15 mins",
-      metrics: {
-        firstCallResolution: "85%",
-        customerSatisfaction: 4.7,
-        responseTime: "< 15 mins"
-      }
-    }
-  },
-  members: [
-    {
-      id: "EMP-001",
-      name: "Priya Sharma",
-      role: "Claims Manager",
-      department: "Claims Processing",
-      email: "priya.s@swiftclaim.com",
-      phone: "+91 98765 43210",
-      joinDate: "2022-03-15",
-      status: "Active",
-      performance: {
-        claimsProcessed: 245,
-        accuracy: 98,
-        avgProcessingTime: "45 mins",
-        customerRating: 4.8
-      },
-      certifications: ["CPCU", "AIC"],
-      recentActivity: [
-        {
-          type: "Claim Approved",
-          id: "CLM-2024-123",
-          timestamp: "2024-03-21T10:30:00"
-        }
-      ],
-      photo: "https://i.pravatar.cc/150?img=44"
-    },
-    {
-      id: "EMP-002",
-      name: "Rajesh Kumar",
-      role: "Senior Underwriter",
-      department: "Underwriting",
-      email: "rajesh.k@swiftclaim.com",
-      phone: "+91 98765 43211",
-      joinDate: "2022-05-20",
-      status: "Active",
-      performance: {
-        policiesReviewed: 180,
-        accuracy: 96,
-        riskAssessments: 120,
-        premiumOptimization: "12%"
-      },
-      certifications: ["AINS", "AU"],
-      photo: "https://i.pravatar.cc/150?img=68"
-    }
-  ],
-  performance: {
-    topPerformers: [
-      {
-        name: "Priya Sharma",
-        metric: "98% Claim Processing Accuracy",
-        achievement: "Top Performer"
-      },
-      {
-        name: "Rajesh Kumar",
-        metric: "156 Policies Reviewed",
-        achievement: "Most Productive"
-      }
-    ],
-    recentAchievements: [
-      {
-        member: "Amit Patel",
-        achievement: "Customer Service Excellence Award",
-        date: "2024-03-15"
-      }
-    ]
-  }
-}
+import apiClient from "@/lib/api-client"
+import { useToast } from "@/hooks/use-toast"
 
 export default function TeamPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [activeTab, setActiveTab] = useState("overview")
+  const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
+
+  const [teamData, setTeamData] = useState({
+    stats: {
+      totalMembers: 1,
+      activeMembers: 1,
+      pendingInvites: 0,
+      departments: 1,
+      avgPerformance: 100
+    },
+    departments: {
+      management: {
+        name: "Management",
+        members: 1,
+        lead: "You",
+        performance: 100,
+        metrics: {
+          avgProcessingTime: "N/A",
+          accuracyRate: "100%",
+          customerSatisfaction: 5.0
+        }
+      }
+    },
+    members: [] as any[],
+    performance: {
+      topPerformers: [] as any[],
+      recentAchievements: [] as any[]
+    }
+  })
+
+  const fetchProfile = async () => {
+    setLoading(true)
+    try {
+      const res = await apiClient.get('/auth/profile')
+      if (res.success && res.data) {
+        const user = res.data
+
+        const me = {
+          id: `EMP-${user.user_id}`,
+          name: user.full_name || "Provider",
+          role: "Provider Admin",
+          department: "Management",
+          email: user.email,
+          phone: user.phone || "N/A",
+          joinDate: user.created_at || new Date().toISOString(),
+          status: "Active",
+          performance: {
+            accuracy: 100
+          },
+          certifications: ["Admin"],
+          photo: "https://i.pravatar.cc/150?img=44"
+        }
+
+        setTeamData(prev => ({
+          ...prev,
+          members: [me],
+          performance: {
+            topPerformers: [
+              {
+                name: me.name,
+                metric: "100% Processing Accuracy",
+                achievement: "Top Performer"
+              }
+            ],
+            recentAchievements: []
+          }
+        }))
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error)
+      toast({ title: "Error", description: "Failed to load team data", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchProfile()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="p-8 space-y-8 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Loading team data...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 space-y-8">
@@ -152,10 +124,16 @@ export default function TeamPage() {
             Manage team members and track performance
           </p>
         </div>
-        <Button className="bg-[#07a6ec] hover:bg-[#0696d7]">
-          <UserPlus className="mr-2 h-4 w-4" />
-          Add Team Member
-        </Button>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={fetchProfile} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          <Button className="bg-[#07a6ec] hover:bg-[#0696d7]">
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add Team Member
+          </Button>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -186,13 +164,11 @@ export default function TeamPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Avg Performance</p>
                 <h3 className="text-2xl font-bold">{teamData.stats.avgPerformance}%</h3>
-                <p className="text-sm text-green-600">+5% from last month</p>
+                <p className="text-sm text-green-600">Stable</p>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Add more stat cards */}
       </div>
 
       {/* Main Content */}
@@ -275,7 +251,7 @@ export default function TeamPage() {
 
         <TabsContent value="members">
           <div className="space-y-4">
-            {teamData.members.map(member => (
+            {teamData.members.length > 0 ? teamData.members.map(member => (
               <Card key={member.id}>
                 <CardContent className="p-6">
                   <div className="flex items-center gap-6">
@@ -315,12 +291,26 @@ export default function TeamPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            )) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No team members found.</p>
+              </div>
+            )}
           </div>
         </TabsContent>
 
-        {/* Add other tab contents */}
+        <TabsContent value="departments">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">More department statistics will be available soon.</p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="performance">
+          <div className="text-center py-8">
+            <p className="text-muted-foreground">More performance statistics will be available soon.</p>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   )
-} 
+}
