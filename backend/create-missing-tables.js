@@ -146,6 +146,59 @@ async function createMissingTables() {
         `);
         console.log('✅ Fixed claims table schema');
 
+        // Create comprehensive policy tables
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS policy_beneficiaries (
+                beneficiary_id SERIAL PRIMARY KEY,
+                policy_id INTEGER REFERENCES policies(policy_id) ON DELETE CASCADE,
+                name VARCHAR(255) NOT NULL,
+                relationship VARCHAR(100) NOT NULL,
+                age INTEGER,
+                gender VARCHAR(20),
+                aadhar_number VARCHAR(20),
+                date_of_birth DATE,
+                is_primary BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE TABLE IF NOT EXISTS policy_payments (
+                payment_id SERIAL PRIMARY KEY,
+                policy_id INTEGER REFERENCES policies(policy_id) ON DELETE CASCADE,
+                payment_type VARCHAR(50) NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                payment_method VARCHAR(50),
+                payment_reference VARCHAR(255),
+                status VARCHAR(50) DEFAULT 'pending',
+                transaction_id VARCHAR(255),
+                payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE TABLE IF NOT EXISTS policy_documents (
+                document_id SERIAL PRIMARY KEY,
+                policy_id INTEGER REFERENCES policies(policy_id) ON DELETE CASCADE,
+                document_type VARCHAR(100) NOT NULL,
+                document_name VARCHAR(255) NOT NULL,
+                file_path TEXT NOT NULL,
+                file_size INTEGER,
+                mime_type VARCHAR(100),
+                uploaded_by INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            
+            CREATE TABLE IF NOT EXISTS policy_claims (
+                claim_id SERIAL PRIMARY KEY,
+                policy_id INTEGER REFERENCES policies(policy_id) ON DELETE CASCADE,
+                claim_number VARCHAR(100),
+                claim_type VARCHAR(50),
+                claim_amount DECIMAL(15,2),
+                incident_date TIMESTAMP,
+                claim_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(50) DEFAULT 'pending',
+                description TEXT
+            );
+        `);
+        console.log('✅ Created comprehensive policy tables');
+
         // Create indexes for performance
         await pool.query('CREATE INDEX IF NOT EXISTS idx_policy_templates_provider ON policy_templates(provider_id)');
         await pool.query('CREATE INDEX IF NOT EXISTS idx_policy_templates_type ON policy_templates(policy_type)');
