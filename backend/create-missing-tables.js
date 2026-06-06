@@ -94,22 +94,19 @@ async function createMissingTables() {
         `);
         console.log('✅ Created notifications table');
 
-        // Create audit_logs table
+        // Create correct audit_log table
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS audit_logs (
+            CREATE TABLE IF NOT EXISTS audit_log (
                 log_id SERIAL PRIMARY KEY,
+                entity_type VARCHAR(50) NOT NULL,
+                entity_id INTEGER NOT NULL,
+                action VARCHAR(50) NOT NULL,
                 user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
-                action VARCHAR(100) NOT NULL,
-                table_name VARCHAR(50) NOT NULL,
-                record_id INTEGER NOT NULL,
-                old_values JSONB,
-                new_values JSONB,
-                ip_address INET,
-                user_agent TEXT,
+                details TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ Created audit_logs table');
+        console.log('✅ Created correct audit_log table');
 
         // Create indexes for performance
         await pool.query('CREATE INDEX IF NOT EXISTS idx_policy_templates_provider ON policy_templates(provider_id)');
