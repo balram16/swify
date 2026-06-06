@@ -383,7 +383,7 @@ export default function HolderPoliciesPage() {
                   </CardContent>
                 </Card>
               ))
-            )}
+            }
           </div>
         </TabsContent>
 
