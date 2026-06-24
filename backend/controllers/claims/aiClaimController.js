@@ -1,6 +1,6 @@
 const pool = require('../../config/db');
 const ABDMService = require('../../services/abdmService');
-const GroqService = require('../../services/groqService');
+const GeminiService = require('../../services/geminiService');
 const CashfreePayoutService = require('../../services/cashfreePayoutService');
 const multer = require('multer');
 const path = require('path');
@@ -8,7 +8,7 @@ const fs = require('fs');
 
 // Initialize services
 const abdmService = new ABDMService();
-const groqService = new GroqService();
+const geminiService = new GeminiService();
 const cashfreePayoutService = new CashfreePayoutService();
 
 // Configure multer for claim document uploads
@@ -214,14 +214,14 @@ const submitClaim = async (req, res) => {
 
         // Perform AI analysis
         console.log('Starting AI analysis...');
-        const aiResult = await groqService.analyzeClaim(claimData);
+        const aiResult = await geminiService.analyzeClaim(claimData);
         
         let aiAnalysis = null;
         if (aiResult.success) {
             aiAnalysis = aiResult.data;
         } else {
             console.log('AI analysis failed, using fallback:', aiResult.error);
-            aiAnalysis = groqService.getMockAnalysis();
+            aiAnalysis = geminiService.getMockAnalysis();
         }
 
         // Update claim with AI analysis
@@ -309,9 +309,27 @@ const getUserClaims = async (req, res) => {
 
         const result = await pool.query(query, [userId]);
         
+        const claims = result.rows.map(row => {
+            if (row.ai_analysis) {
+                try {
+                    row.ai_analysis = JSON.parse(row.ai_analysis);
+                } catch (e) {
+                    console.error('Error parsing ai_analysis:', e);
+                }
+            }
+            if (row.abdm_data) {
+                try {
+                    row.abdm_data = JSON.parse(row.abdm_data);
+                } catch (e) {
+                    console.error('Error parsing abdm_data:', e);
+                }
+            }
+            return row;
+        });
+
         res.json({
             success: true,
-            data: result.rows
+            data: claims
         });
 
     } catch (error) {
@@ -344,9 +362,27 @@ const getProviderClaims = async (req, res) => {
 
         const result = await pool.query(query, [providerId]);
         
+        const claims = result.rows.map(row => {
+            if (row.ai_analysis) {
+                try {
+                    row.ai_analysis = JSON.parse(row.ai_analysis);
+                } catch (e) {
+                    console.error('Error parsing ai_analysis:', e);
+                }
+            }
+            if (row.abdm_data) {
+                try {
+                    row.abdm_data = JSON.parse(row.abdm_data);
+                } catch (e) {
+                    console.error('Error parsing abdm_data:', e);
+                }
+            }
+            return row;
+        });
+
         res.json({
             success: true,
-            data: result.rows
+            data: claims
         });
 
     } catch (error) {

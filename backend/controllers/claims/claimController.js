@@ -298,7 +298,8 @@ const verifyClaim = async (req, res) => {
 
         const claimResult = await client.query(
             `SELECT cl.claim_id, cl.claim_amount, cl.claim_status, cl.claim_type,
-                    cl.incident_description, cl.filing_date, cl.user_id,
+                    cl.incident_description, cl.filing_date, cl.user_id, cl.policy_id,
+                    cl.ai_analysis, cl.fraud_score, cl.risk_level,
                     p.provider_id, p.policy_type, p.coverage_amount, p.policy_number
              FROM claims cl
              JOIN policies p ON cl.policy_id = p.policy_id
@@ -314,6 +315,70 @@ const verifyClaim = async (req, res) => {
 
         if (String(claim.provider_id) !== providerId) {
             return res.status(403).json({ success: false, error: 'Not authorized' });
+        }
+
+        // Check if Gemini AI analysis is already available in the database
+        if (claim.ai_analysis) {
+            try {
+                const ai = typeof claim.ai_analysis === 'string' ? JSON.parse(claim.ai_analysis) : claim.ai_analysis;
+                const recommendation = ai.isValidClaim ? (ai.riskLevel === 'LOW' ? 'approve' : 'review') : 'reject';
+                
+                // Construct structured factors from the Gemini analysis details
+                const factors = [];
+                if (ai.analysis) {
+                    if (ai.analysis.medicalConsistency) {
+                        factors.push({ name: 'Medical Consistency', impact: ai.riskLevel === 'LOW' ? 'low' : ai.riskLevel === 'MEDIUM' ? 'medium' : 'high', detail: ai.analysis.medicalConsistency });
+                    }
+                    if (ai.analysis.amountValidation) {
+                        factors.push({ name: 'Amount Validation', impact: ai.amountValidation === 'TOO_HIGH' ? 'high' : 'low', detail: ai.analysis.amountValidation });
+                    }
+                    if (ai.analysis.documentAuthenticity) {
+                        factors.push({ name: 'Document Authenticity', impact: ai.isValidClaim ? 'low' : 'high', detail: ai.analysis.documentAuthenticity });
+                    }
+                    if (ai.analysis.timelineValidation) {
+                        factors.push({ name: 'Timeline Validation', impact: 'low', detail: ai.analysis.timelineValidation });
+                    }
+                    if (ai.analysis.policyCompliance) {
+                        factors.push({ name: 'Policy Compliance', impact: 'low', detail: ai.analysis.policyCompliance });
+                    }
+                }
+                
+                // Add red flags as factors if present
+                if (ai.redFlags && ai.redFlags.length > 0) {
+                    ai.redFlags.forEach(flag => {
+                        factors.push({ name: 'Red Flag', impact: 'high', detail: flag });
+                    });
+                }
+
+                // If factors array is empty, provide a general fallback factor
+                if (factors.length === 0) {
+                    factors.push({ name: 'AI Verification', impact: ai.isValidClaim ? 'low' : 'high', detail: ai.summary || 'Claim verified by Gemini AI.' });
+                }
+
+                const aiResult = {
+                    riskScore: Math.round(ai.fraudScore || parseFloat(claim.fraud_score) || 0),
+                    confidenceScore: Math.round(ai.confidence || 90),
+                    recommendation,
+                    factors,
+                    analyzedAt: new Date().toISOString(),
+                    summary: ai.summary || 'AI has reviewed the medical documents and claims details.'
+                };
+
+                // Update claim status to verified
+                await client.query(
+                    `UPDATE claims SET claim_status = 'verified', processing_notes = $1, updated_at = CURRENT_TIMESTAMP WHERE claim_id = $2`,
+                    [JSON.stringify(aiResult), claimId]
+                );
+
+                return res.json({
+                    success: true,
+                    claimId: parseInt(claimId),
+                    analysis: aiResult
+                });
+
+            } catch (parseError) {
+                console.error('Error parsing existing ai_analysis, falling back to rule-based:', parseError);
+            }
         }
 
         // --- AI Analysis Logic ---
@@ -372,7 +437,7 @@ const verifyClaim = async (req, res) => {
         const duplicateCheck = await client.query(
             `SELECT COUNT(*) as cnt FROM claims 
              WHERE user_id = $1 AND policy_id = $2 AND claim_id != $3`,
-            [claim.user_id, claim.policy_number, claimId]
+            [claim.user_id, claim.policy_id, claimId]
         );
         const prevClaims = parseInt(duplicateCheck.rows[0].cnt);
         if (prevClaims > 2) {

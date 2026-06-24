@@ -4,12 +4,17 @@
  */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const fs = require('fs');
+const path = require('path');
 
 class GeminiService {
     constructor() {
         this.apiKey = process.env.GEMINI_API_KEY || 'your-gemini-api-key-here';
         this.genAI = new GoogleGenerativeAI(this.apiKey);
-        this.model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+        this.model = this.genAI.getGenerativeModel({ 
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: 'application/json' }
+        });
     }
 
     /**
@@ -38,7 +43,37 @@ class GeminiService {
                 incidentDate
             });
 
-            const result = await this.model.generateContent(prompt);
+            // Read documents and convert to inline parts for multimodal Gemini call
+            const mediaParts = [];
+            if (userDocuments && userDocuments.length > 0) {
+                for (const doc of userDocuments) {
+                    if (doc.path && fs.existsSync(doc.path)) {
+                        // Only support PDF and images natively in Gemini
+                        if (doc.mimeType && (
+                            doc.mimeType.startsWith('image/') || 
+                            doc.mimeType === 'application/pdf'
+                        )) {
+                            try {
+                                const fileBuffer = fs.readFileSync(doc.path);
+                                mediaParts.push({
+                                    inlineData: {
+                                        data: fileBuffer.toString('base64'),
+                                        mimeType: doc.mimeType
+                                    }
+                                });
+                                console.log(`Loaded document for Gemini analysis: ${doc.name} (${doc.mimeType})`);
+                            } catch (readError) {
+                                console.error(`Failed to read file ${doc.path}:`, readError);
+                            }
+                        } else {
+                            console.log(`Skipping unsupported document type for inline analysis: ${doc.name} (${doc.mimeType})`);
+                        }
+                    }
+                }
+            }
+
+            // Call Gemini API with text prompt and document attachments
+            const result = await this.model.generateContent([prompt, ...mediaParts]);
             const response = await result.response;
             const analysisText = response.text();
 
@@ -67,7 +102,7 @@ class GeminiService {
      */
     buildAnalysisPrompt(data) {
         return `
-You are an expert medical insurance fraud detection AI. Analyze the following insurance claim data and provide a comprehensive assessment.
+You are an expert medical insurance fraud detection AI. Analyze the following insurance claim data and verify the attached document images/PDFs.
 
 CLAIM DETAILS:
 - Claim Amount: ₹${data.claimAmount}
@@ -76,11 +111,21 @@ CLAIM DETAILS:
 - Incident Date: ${data.incidentDate}
 - Claim Description: ${data.claimDescription}
 
-ABDM MEDICAL RECORDS:
+ABDM MEDICAL RECORDS (Official Government Records):
 ${JSON.stringify(data.abdmRecords, null, 2)}
 
-USER UPLOADED DOCUMENTS:
+USER UPLOADED DOCUMENTS METADATA:
 ${JSON.stringify(data.userDocuments, null, 2)}
+
+IMPORTANT DOCUMENT VERIFICATION RULES:
+1. You have been provided with the actual content/images of the uploaded documents.
+2. Carefully inspect the contents of each document. Check if they are valid medical documents (e.g. hospital discharge summaries, medical bills, diagnostic reports, prescriptions, or laboratory results).
+3. If any document is completely unrelated (e.g., random screenshots, nature pictures, selfies, empty templates, dummy text, or files unrelated to medical treatments), or if they do not match the claimant's name or described treatment:
+   - You MUST flag the riskLevel as HIGH or CRITICAL.
+   - Set isValidClaim to false.
+   - Set a high fraudScore (e.g. 80-100).
+   - Add a red flag: "Fraudulent/Unrelated document uploaded".
+   - Under "analysis.documentAuthenticity", write a detailed explanation showing that the uploaded document is not a valid medical record.
 
 Please analyze this claim and provide a JSON response with the following structure:
 
@@ -112,7 +157,7 @@ Focus on:
 1. Medical record consistency between ABDM and user documents
 2. Claim amount reasonableness vs medical treatment
 3. Timeline validation (incident date vs treatment dates)
-4. Document authenticity indicators
+4. Document authenticity indicators (checking content of actual files)
 5. Policy coverage validation
 6. Potential fraud indicators
 
